@@ -1,0 +1,57 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "0. Test connection",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/db_config.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "1. Create schema",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/01_Create_Schema.py",
+      "args": ["--yes"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "2. Insert data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/02_Insert_Data.py",
+      "args": ["--yes"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "3. Verify data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/03_Verify_Data.py",
+      "args": ["--verbose"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "4. Run analytics",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/04_Analytics_Queries.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run everything (00_Run_All)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/00_Run_All.py",
+      "args": ["--yes"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

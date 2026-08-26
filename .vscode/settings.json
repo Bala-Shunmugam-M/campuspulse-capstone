@@ -1,0 +1,38 @@
+{
+  // ---- Python interpreter -------------------------------------------
+  // Points VS Code at the project virtual environment so that psycopg2,
+  // Faker and tabulate resolve without any extra setup.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  // ---- Editor behaviour ---------------------------------------------
+  "editor.rulers": [88],
+  "editor.formatOnSave": false,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  },
+  "[sql]": {
+    "editor.tabSize": 2
+  },
+
+  // ---- Keep the tree readable ---------------------------------------
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/out": true
+  },
+
+  // ---- Never let the local .env get committed or indexed ------------
+  "files.watcherExclude": {
+    "**/.venv/**": true
+  }
+}
