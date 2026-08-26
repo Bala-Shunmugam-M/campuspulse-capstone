@@ -416,15 +416,65 @@ def run_checks(verbose: bool) -> int:
     return 0
 
 
+FINGERPRINT_TABLES = [
+    "institutions", "users", "locations", "categories", "assets",
+    "incidents", "reports", "incident_reports", "work_orders",
+    "status_history", "notifications", "feedback",
+]
+
+
+def fingerprint() -> int:
+    """Print a content hash of the dataset, for proving reproducibility.
+
+    Load twice with the same --seed AND the same --anchor; the fingerprints
+    must match. They will not match without --anchor, because the generator's
+    history window is measured backwards from the wall clock.
+
+        python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
+        python 03_Verify_Data.py --fingerprint
+    """
+    import hashlib
+
+    banner("CampusPulse - Dataset Fingerprint")
+    digest = hashlib.sha256()
+    rows: list[list[str]] = []
+
+    with managed_connection() as conn:
+        with conn.cursor() as cur:
+            for table in FINGERPRINT_TABLES:
+                cur.execute(
+                    f"""SELECT count(*),
+                               md5(coalesce(
+                                   string_agg(x::text, '|' ORDER BY x::text), ''))
+                          FROM {SCHEMA}."{table}" x;"""
+                )
+                count, table_hash = cur.fetchone()
+                rows.append([table, f"{count:,}", table_hash])
+                digest.update(f"{table}:{count}:{table_hash}".encode())
+
+    print(tabulate(rows, headers=["Table", "Rows", "Content hash (md5)"],
+                   tablefmt="github"))
+    print()
+    ok(f"DATASET FINGERPRINT: {digest.hexdigest()}")
+    print()
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Audit the integrity of the loaded CampusPulse dataset."
     )
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Also print a table inventory with row counts.")
+    parser.add_argument("--fingerprint", action="store_true",
+                        help="Print a content hash of the dataset instead of "
+                             "running the checks. Use it to prove that two "
+                             "loads with the same seed and anchor are identical.")
     args = parser.parse_args()
 
     try:
+        if args.fingerprint:
+            sys.exit(fingerprint())
         sys.exit(run_checks(args.verbose))
     except Exception as exc:  # noqa: BLE001 - top-level CLI handler
         fail(f"Verification could not run: {exc}")

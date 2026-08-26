@@ -399,13 +399,19 @@ class Generated:
 
 
 class CampusPulseGenerator:
-    def __init__(self, scale: Scale, seed: int, history_months: int) -> None:
+    def __init__(self, scale: Scale, seed: int, history_months: int,
+                 anchor: datetime | None = None) -> None:
         self.scale = scale
         self.rng = random.Random(seed)
         self.fake = Faker("en_IN")
         Faker.seed(seed)
 
-        self.now = datetime.now(timezone.utc).replace(microsecond=0)
+        # `anchor` is the simulated "now". It defaults to the wall clock, which
+        # means two runs at different times produce *similar but not identical*
+        # data even from the same seed -- the history window slides, and which
+        # in-flight incidents get skipped changes. Pass --anchor to pin it and
+        # make runs bit-for-bit reproducible.
+        self.now = (anchor or datetime.now(timezone.utc)).replace(microsecond=0)
         self.window_start = self.now - timedelta(days=int(history_months * 30.44))
         self.out = Generated()
 
@@ -418,7 +424,11 @@ class CampusPulseGenerator:
         self._users_by_role: dict[str, dict[str, list]] = {}
         self._team_by_parent: dict[str, dict[str, str]] = {}
         self._members_by_team: dict[str, list] = {}
-        self._hot_locations: dict[str, set] = {}
+        # Kept as a LIST, never a set. Converting a set of strings to a list
+        # yields an order that depends on string hashing, which Python
+        # randomizes per process (PYTHONHASHSEED). A set here silently breaks
+        # seed reproducibility -- same seed, different data on every run.
+        self._hot_locations: dict[str, list] = {}
 
     # ---------------------------------------------------------------- utils
     def uid(self) -> str:
@@ -496,7 +506,7 @@ class CampusPulseGenerator:
             self._assets_by_location[iid] = {}
             self._users_by_role[iid] = {"student": [], "faculty": [], "admin": [], "technician": []}
             self._team_by_parent[iid] = {}
-            self._hot_locations[iid] = set()
+            self._hot_locations[iid] = []
 
     # ----------------------------------------------------------- 2. locations
     def gen_locations(self) -> None:
@@ -542,7 +552,8 @@ class CampusPulseGenerator:
             # ~12% of rooms are "problem spots" that generate outsized incidents.
             room_ids = [r[0] for r in self._rooms[iid]]
             hot_count = max(1, int(len(room_ids) * 0.12))
-            self._hot_locations[iid] = set(self.rng.sample(room_ids, hot_count))
+            # rng.sample already returns a deterministically ordered list.
+            self._hot_locations[iid] = self.rng.sample(room_ids, hot_count)
 
     # ---------------------------------------------------------- 3. categories
     def gen_categories(self) -> None:
@@ -739,7 +750,7 @@ class CampusPulseGenerator:
         for inst in self.out.institutions:
             iid = inst[0]
             rooms = self._rooms[iid]
-            hot = list(self._hot_locations[iid])
+            hot = self._hot_locations[iid]
             leaves = self._issue_leaves[iid]
             students = (
                 self._users_by_role[iid]["student"] + self._users_by_role[iid]["faculty"]
@@ -792,10 +803,14 @@ class CampusPulseGenerator:
                 if status == "closed":
                     closed_at = resolved_at + timedelta(hours=self.rng.uniform(1, 72))
 
-                # Never let a simulated future leak past "now".
-                if closed_at and closed_at > self.now:
-                    continue
-                if resolved_at and resolved_at > self.now:
+                # Never let a simulated future leak past the anchor. A recently
+                # created low-priority incident can otherwise be "acknowledged"
+                # up to sla_hours*0.35 (~34h) ahead of now, so every lifecycle
+                # timestamp has to be checked -- not just the later ones.
+                # sla_due_at is deliberately excluded: it is a deadline, and
+                # being in the future is exactly what it is for.
+                if any(t is not None and t > self.now
+                       for t in (acknowledged_at, resolved_at, closed_at)):
                     continue
 
                 reporter = self.pick(students)
@@ -1115,6 +1130,11 @@ def main() -> None:
     parser.add_argument("--scale", choices=sorted(SCALES), default=DEFAULT_SCALE)
     parser.add_argument("--seed", type=int, default=RANDOM_SEED)
     parser.add_argument("--months", type=int, default=HISTORY_MONTHS)
+    parser.add_argument("--anchor", metavar="ISO8601", default=os.getenv("ANCHOR_TIME"),
+                        help="Pin the simulated 'now' (e.g. 2026-08-26T00:00:00Z). "
+                             "Required for bit-for-bit reproducibility; without "
+                             "it the wall clock is used and the history window "
+                             "slides between runs.")
     parser.add_argument("-y", "--yes", action="store_true",
                         help="Do not prompt before clearing existing rows.")
     parser.add_argument("--truncate-only", action="store_true",
@@ -1123,9 +1143,20 @@ def main() -> None:
 
     scale = SCALES[args.scale]
 
+    anchor: datetime | None = None
+    if args.anchor:
+        try:
+            anchor = datetime.fromisoformat(args.anchor.replace("Z", "+00:00"))
+        except ValueError:
+            fail(f"--anchor value {args.anchor!r} is not a valid ISO-8601 timestamp.")
+            sys.exit(2)
+        if anchor.tzinfo is None:
+            anchor = anchor.replace(tzinfo=timezone.utc)
+
     banner("CampusPulse - Synthetic Data Generator")
     step(f"Target : {describe_target()}")
     step(f"Scale  : {scale.name}  |  seed={args.seed}  |  history={args.months} months")
+    step(f"Anchor : {anchor.isoformat() if anchor else 'wall clock (not pinned)'}")
 
     try:
         with managed_connection() as conn:
@@ -1151,7 +1182,7 @@ def main() -> None:
                 # ---- generate in memory --------------------------------
                 banner("Generating", char="-")
                 gen_started = time.perf_counter()
-                generator = CampusPulseGenerator(scale, args.seed, args.months)
+                generator = CampusPulseGenerator(scale, args.seed, args.months, anchor)
                 data = generator.generate()
                 gen_elapsed = time.perf_counter() - gen_started
                 ok(f"Generation finished in {gen_elapsed:.2f}s")

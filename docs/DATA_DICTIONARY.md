@@ -4,7 +4,7 @@
 > Regenerate with `python 05_Export_Documentation.py` after any schema change.
 
 - **Schema:** `campuspulse`
-- **Generated:** 2026-08-26 03:58 UTC
+- **Generated:** 2026-08-26 04:11 UTC
 - **Source:** PostgreSQL `information_schema` + `pg_catalog` of the live database
 
 ---
@@ -32,21 +32,21 @@ Controlled vocabularies enforced by the database itself. A value outside these l
 | # | Table | Rows | Purpose |
 |---|---|---|---|
 | 1 | [`assets`](#assets) | 2,499 | Physical items bearing an Asset Identification Number / QR sticker. Scanning the QR auto-fills location and asset details on a report. |
-| 2 | [`attachments`](#attachments) | 944 | Polymorphic file store. table_type + table_id identify the owner row; a declarative FK is deliberately impossible here, so the application layer owns that integrity. |
+| 2 | [`attachments`](#attachments) | 950 | Polymorphic file store. table_type + table_id identify the owner row; a declarative FK is deliberately impossible here, so the application layer owns that integrity. |
 | 3 | [`categories`](#categories) | 150 | Dual-purpose taxonomy: issue categories (what broke) and asset categories (what kind of thing it is). sla_hours drives the SLA-breach analytics. |
-| 4 | [`feedback`](#feedback) | 558 | Post-resolution satisfaction score, 1-5. Closes the quality loop. |
-| 5 | [`incident_reports`](#incident-reports) | 5,367 | Junction implementing many-reports-to-one-incident aggregation. is_affected marks reporters who should receive status updates. |
-| 6 | [`incidents`](#incidents) | 2,985 | The de-duplicated unit of work. One incident = one real-world problem, however many people reported it. |
+| 4 | [`feedback`](#feedback) | 565 | Post-resolution satisfaction score, 1-5. Closes the quality loop. |
+| 5 | [`incident_reports`](#incident-reports) | 5,291 | Junction implementing many-reports-to-one-incident aggregation. is_affected marks reporters who should receive status updates. |
+| 6 | [`incidents`](#incidents) | 2,993 | The de-duplicated unit of work. One incident = one real-world problem, however many people reported it. |
 | 7 | [`institutions`](#institutions) | 3 | Tenant root. One row per college / university / campus operator. |
 | 8 | [`locations`](#locations) | 780 | Self-referencing hierarchy: campus > building > floor > room/area. Recursive CTEs walk this tree to roll incidents up to any level. |
-| 9 | [`notifications`](#notifications) | 8,749 | Outbound messages to reporters and staff (Outlook email, in-app, SMS). |
-| 10 | [`reports`](#reports) | 5,367 | Raw user submissions. Many reports about the same real-world problem are later aggregated into ONE incident. |
+| 9 | [`notifications`](#notifications) | 8,840 | Outbound messages to reporters and staff (Outlook email, in-app, SMS). |
+| 10 | [`reports`](#reports) | 5,291 | Raw user submissions. Many reports about the same real-world problem are later aggregated into ONE incident. |
 | 11 | [`service_teams`](#service-teams) | 18 | Maintenance crews: Electrical, Plumbing, IT Support, Housekeeping... |
-| 12 | [`status_history`](#status-history) | 11,402 | Append-only audit trail of every incident state transition. This is what makes stage-by-stage cycle-time analysis possible. |
+| 12 | [`status_history`](#status-history) | 11,522 | Append-only audit trail of every incident state transition. This is what makes stage-by-stage cycle-time analysis possible. |
 | 13 | [`team_members`](#team-members) | 78 | Junction table resolving the many-to-many between technicians and service teams. Added beyond the original UML so that work orders can be assigned to a real, verifiable member of the owning team. |
 | 14 | [`user_roles`](#user-roles) | 47 | Secondary roles. users.role holds the primary role; this table lets one person also be, say, a technician AND a faculty member. |
 | 15 | [`users`](#users) | 1,200 | All actors: students, faculty, admins and technicians. |
-| 16 | [`work_orders`](#work-orders) | 2,495 | Execution record: which team/technician was dispatched, how long it took, what it cost. |
+| 16 | [`work_orders`](#work-orders) | 2,536 | Execution record: which team/technician was dispatched, how long it took, what it cost. |
 
 ---
 
@@ -98,7 +98,7 @@ _Physical items bearing an Asset Identification Number / QR sticker. Scanning th
 
 _Polymorphic file store. table_type + table_id identify the owner row; a declarative FK is deliberately impossible here, so the application layer owns that integrity._
 
-**Live row count:** 944
+**Live row count:** 950
 
 #### Columns
 
@@ -170,7 +170,7 @@ _Dual-purpose taxonomy: issue categories (what broke) and asset categories (what
 
 _Post-resolution satisfaction score, 1-5. Closes the quality loop._
 
-**Live row count:** 558
+**Live row count:** 565
 
 #### Columns
 
@@ -205,7 +205,7 @@ _Post-resolution satisfaction score, 1-5. Closes the quality loop._
 
 _Junction implementing many-reports-to-one-incident aggregation. is_affected marks reporters who should receive status updates._
 
-**Live row count:** 5,367
+**Live row count:** 5,291
 
 #### Columns
 
@@ -239,7 +239,7 @@ _Junction implementing many-reports-to-one-incident aggregation. is_affected mar
 
 _The de-duplicated unit of work. One incident = one real-world problem, however many people reported it._
 
-**Live row count:** 2,985
+**Live row count:** 2,993
 
 #### Columns
 
@@ -367,7 +367,7 @@ _Self-referencing hierarchy: campus > building > floor > room/area. Recursive CT
 
 _Outbound messages to reporters and staff (Outlook email, in-app, SMS)._
 
-**Live row count:** 8,749
+**Live row count:** 8,840
 
 #### Columns
 
@@ -403,7 +403,7 @@ _Outbound messages to reporters and staff (Outlook email, in-app, SMS)._
 
 _Raw user submissions. Many reports about the same real-world problem are later aggregated into ONE incident._
 
-**Live row count:** 5,367
+**Live row count:** 5,291
 
 #### Columns
 
@@ -485,7 +485,7 @@ _Maintenance crews: Electrical, Plumbing, IT Support, Housekeeping..._
 
 _Append-only audit trail of every incident state transition. This is what makes stage-by-stage cycle-time analysis possible._
 
-**Live row count:** 11,402
+**Live row count:** 11,522
 
 #### Columns
 
@@ -618,7 +618,7 @@ _All actors: students, faculty, admins and technicians._
 
 _Execution record: which team/technician was dispatched, how long it took, what it cost._
 
-**Live row count:** 2,495
+**Live row count:** 2,536
 
 #### Columns
 
@@ -664,7 +664,7 @@ Pre-joined projections used by the analytics layer and any BI tool pointed at th
 
 ### v_incident_details
 
-**Rows:** 2,985
+**Rows:** 2,993
 
 | Column | Type |
 |---|---|
@@ -692,7 +692,7 @@ Pre-joined projections used by the analytics layer and any BI tool pointed at th
 
 ### v_location_heatmap
 
-**Rows:** 631
+**Rows:** 630
 
 | Column | Type |
 |---|---|

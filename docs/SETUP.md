@@ -219,6 +219,8 @@ choose the one inside `./.venv`.
 | Load a smaller dataset | `python 02_Insert_Data.py --scale small --yes` |
 | Load a much larger dataset | `python 02_Insert_Data.py --scale large --yes` |
 | Generate a *different* dataset | `python 02_Insert_Data.py --seed 1234 --yes` |
+| Reproduce an exact dataset | `python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z` |
+| Hash the dataset to compare runs | `python 03_Verify_Data.py --fingerprint` |
 | Empty the tables, keep the schema | `python 02_Insert_Data.py --truncate-only` |
 | Run one analytics query | `python 04_Analytics_Queries.py --only 12` |
 | List the analytics questions | `python 04_Analytics_Queries.py --list` |

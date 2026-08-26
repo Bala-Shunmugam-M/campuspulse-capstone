@@ -82,22 +82,28 @@ not an estimate.
 
 ```
 Schema build      16 tables · 4 views · 68 indexes · 9 ENUMs · 34 FKs     6.5 s
-Data generation   42,642 rows generated in memory                         0.3 s
-Data load         42,642 rows inserted via execute_values                12.2 s
+Data generation   42,763 rows generated in memory                         0.3 s
+Data load         42,763 rows inserted via execute_values                13.1 s
 Integrity audit   47 of 47 checks passed                                   ✓
 Analytics         14 queries · 162 rows returned                        3.34 s
 ```
 
 | Table | Rows | Table | Rows |
 |---|---:|---|---:|
-| `institutions` | 3 | `incidents` | 2,985 |
-| `users` | 1,200 | `reports` | 5,367 |
-| `user_roles` | 47 | `incident_reports` | 5,367 |
-| `locations` | 780 | `work_orders` | 2,495 |
-| `categories` | 150 | `status_history` | 11,402 |
-| `service_teams` | 18 | `notifications` | 8,749 |
-| `team_members` | 78 | `attachments` | 944 |
-| `assets` | 2,499 | `feedback` | 558 |
+| `institutions` | 3 | `incidents` | 2,993 |
+| `users` | 1,200 | `reports` | 5,291 |
+| `user_roles` | 47 | `incident_reports` | 5,291 |
+| `locations` | 780 | `work_orders` | 2,536 |
+| `categories` | 150 | `status_history` | 11,522 |
+| `service_teams` | 18 | `notifications` | 8,840 |
+| `team_members` | 78 | `attachments` | 950 |
+| `assets` | 2,499 | `feedback` | 565 |
+
+Reproduce these exact figures with:
+
+```bash
+python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
+```
 
 ---
 
@@ -125,10 +131,10 @@ The `incident_reports` junction table links them many-to-one, with a
 `UNIQUE (report_id)` constraint guaranteeing a report can never belong to two
 incidents.
 
-**Why it matters, measured:** in the generated dataset, 5,367 reports collapse
-into 2,985 incidents — an average of **1.80 reports per incident**, with **44.4%
+**Why it matters, measured:** in the generated dataset, 5,291 reports collapse
+into 2,993 incidents — an average of **1.77 reports per incident**, with **43.4%
 of reports being duplicates**. Naive one-visit-per-report handling would have
-dispatched **2,382 unnecessary technician visits** over 18 months. Query 5 in
+dispatched **2,298 unnecessary technician visits** over 18 months. Query 5 in
 the analytics suite computes exactly this.
 
 ---
@@ -364,22 +370,57 @@ def uid(self) -> str:
     return str(uuid.UUID(int=self.rng.getrandbits(128), version=4))
 ```
 
-`python 02_Insert_Data.py --seed 42` produces a byte-identical dataset on any
-machine. `--seed 1234` produces a completely different but equally coherent one.
+Reproducibility requires pinning **two** things, not one:
+
+```bash
+python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
+```
+
+- **`--seed`** fixes the random stream.
+- **`--anchor`** fixes the simulated "now". Without it the generator measures
+  its 18-month window backwards from the wall clock, so runs at different times
+  produce similar-but-not-identical data — the window slides, and which
+  in-flight incidents fall past "now" changes.
+
+Verify it rather than taking it on trust:
+
+```bash
+python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
+python 03_Verify_Data.py --fingerprint     # note the hash
+python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
+python 03_Verify_Data.py --fingerprint     # identical hash
+```
+
+Confirmed identical across runs:
+`891ea4f910a8c3bf0285db83ed8595f2c598e4079b980b212f7d2a23a123c64d`
+
+> **A bug worth recording.** This did not work at first. Two loads with the same
+> seed *and* the same anchor produced different data, and the cause was a single
+> `set()`: the failure-prone rooms were stored as a set of UUID strings and then
+> converted to a list for indexing. Set iteration order for strings depends on
+> string hashing, which Python **randomizes per process** via `PYTHONHASHSEED` —
+> so the same seed picked different hot spots on every run. The fix was to keep
+> `rng.sample()`'s already-ordered list and never round-trip it through a set.
+>
+> The lesson generalises: a seeded RNG is necessary but not sufficient for
+> determinism. Any set or dict iteration over strings can silently reintroduce
+> randomness, and the only way to know is to hash the output and compare.
+
+`--seed 1234` produces a completely different but equally coherent dataset.
 
 ### 7.3 Scale presets
 
 | Preset | Institutions | Users | Assets | Incidents | Total rows |
 |---|---:|---:|---:|---:|---:|
 | `small` | 1 | 200 | 400 | 800 | ~11,000 |
-| `medium` *(default)* | 3 | 1,200 | 2,500 | 3,000 | ~42,600 |
+| `medium` *(default)* | 3 | 1,200 | 2,500 | 3,000 | ~42,800 |
 | `large` | 5 | 6,000 | 12,000 | 20,000 | ~280,000 |
 
 ### 7.4 Loading performance
 
 Rows are inserted with `psycopg2.extras.execute_values` at a page size of 1,000,
-which batches many rows into a single multi-VALUES statement. The whole 42,642-row
-load takes **12.2 seconds over the public internet** to a Supabase instance —
+which batches many rows into a single multi-VALUES statement. The whole 42,763-row
+load takes **13 seconds over the public internet** to a Supabase instance —
 row-by-row `INSERT` would take several minutes.
 
 The entire load runs inside **one transaction**. If anything fails, nothing is
@@ -456,45 +497,49 @@ data supports genuine analysis rather than merely existing.
 
 | Priority | Resolved | Avg ack (h) | Avg fix (h) | Median (h) | SLA met |
 |---|---:|---:|---:|---:|---:|
-| critical | 281 | 0.67 | 2.7 | 1.7 | 87.2% |
-| high | 745 | 2.24 | 10.6 | 6.0 | 83.6% |
-| medium | 663 | 3.74 | 21.2 | 11.8 | 76.2% |
-| low | 254 | 10.43 | 67.0 | 34.7 | 72.8% |
+| critical | 278 | 0.62 | 2.9 | 1.7 | 84.5% |
+| high | 823 | 2.21 | 10.6 | 6.0 | 81.8% |
+| medium | 616 | 3.58 | 19.8 | 9.9 | 77.3% |
+| low | 260 | 10.51 | 64.6 | 35.2 | 75.8% |
 
 A clean monotonic gradient across all four columns. Critical faults are
-acknowledged in **40 minutes** and fixed in under **3 hours**; low-priority ones
+acknowledged in **37 minutes** and fixed in under **3 hours**; low-priority ones
 wait over ten hours just to be looked at.
 
-### Aggregation prevents 2,382 wasted dispatches
+### Aggregation prevents 2,298 wasted dispatches
 
 | Reports per incident | Incidents | % of total | Duplicate reports |
 |---:|---:|---:|---:|
-| 1 | 1,628 | 54.5% | 0 |
-| 2 | 705 | 23.6% | 705 |
-| 3 | 371 | 12.4% | 742 |
-| 4 | 189 | 6.3% | 567 |
-| 5 | 92 | 3.1% | 368 |
+| 1 | 1,654 | 55.3% | 0 |
+| 2 | 722 | 24.1% | 722 |
+| 3 | 358 | 12.0% | 716 |
+| 4 | 176 | 5.9% | 528 |
+| 5 | 83 | 2.8% | 332 |
 
-**45.5% of incidents attracted more than one report.** Without the
-report/incident split, those would have generated **2,382 redundant technician
+**44.7% of incidents attracted more than one report.** Without the
+report/incident split, those would have generated **2,298 redundant technician
 visits** over 18 months.
 
 ### Slow service measurably reduces satisfaction
 
 | Rating | Responses | Avg fix (h) | Median (h) | Within SLA |
 |---:|---:|---:|---:|---:|
-| 5 | 203 | 13.4 | 5.7 | 96.6% |
-| 4 | 197 | 13.0 | 6.7 | 90.9% |
-| 3 | 85 | 35.4 | 12.8 | 60.0% |
-| 2 | 42 | 60.2 | 27.8 | 21.4% |
-| 1 | 31 | 55.9 | 26.7 | 22.6% |
+| 5 | 201 | 13.2 | 6.4 | 95.0% |
+| 4 | 190 | 13.6 | 6.0 | 92.1% |
+| 3 | 97 | 34.5 | 10.3 | 60.8% |
+| 2 | 45 | 60.6 | 34.5 | 31.1% |
+| 1 | 32 | 47.3 | 17.5 | 21.9% |
 
-Pearson correlation between rating and resolution hours: **−0.34**.
+Pearson correlation between rating and resolution hours: **−0.31**.
 
-Note the sharper signal in the **Within SLA** column (96.6% → 22.6%) than in raw
-hours. That is the operationally useful finding: what drives satisfaction is not
-absolute speed but **whether the promised turnaround was met**. A four-hour fix
-on a four-hour SLA scores better than a four-hour fix on a one-hour SLA.
+Two things are worth noticing. First, raw hours are **not** monotonic — 1-star
+reviews average *fewer* hours than 2-star ones. Second, the **Within SLA**
+column *is* monotonic and far steeper (95.0% → 21.9%).
+
+That contrast is the operationally useful finding: what drives satisfaction is
+not absolute speed but **whether the promised turnaround was met**. A four-hour
+fix on a four-hour SLA scores better than a four-hour fix on a one-hour SLA.
+Chasing average resolution time would optimise the weaker signal.
 
 ### Hot spots are real and concentrated
 
@@ -502,11 +547,12 @@ Rolling room-level incidents up to buildings (recursive CTE, query 12):
 
 | Institution | Building | Spaces | Incidents | Per space |
 |---|---|---:|---:|---:|
-| AMR | Main Academic Block | 37 | 204 | 5.51 |
-| AMR | Computer Centre | 37 | 170 | 4.59 |
-| AMR | Administrative Block | 37 | 100 | 2.70 |
+| AMR | Main Academic Block | 37 | 191 | 5.16 |
+| AMR | Girls Hostel | 37 | 162 | 4.38 |
+| AMR | Boys Hostel | 37 | 113 | 3.05 |
+| AMR | Science Laboratory Complex | 37 | 105 | 2.84 |
 
-The worst building generates **twice** the incidents per space of the best, at
+The worst building generates **1.8×** the incidents per space of the best, at
 identical size — a difference worth a root-cause investigation rather than
 another round of individual repairs.
 
@@ -605,7 +651,7 @@ carefully.
    by construction, but it is not empirical. Findings here demonstrate that the
    schema supports the analysis — they are not discoveries about any real campus.
 2. **Correlations are partly by construction.** The rating/resolution-time
-   correlation of −0.34 is real in the data, but it arises because the generator
+   correlation of −0.31 is real in the data, but it arises because the generator
    draws ratings conditional on SLA compliance. It validates the *analytical
    pipeline*, not human psychology.
 3. **Duplicate detection is not implemented.** The generator *knows* which

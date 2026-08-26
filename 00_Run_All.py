@@ -47,6 +47,11 @@ def main() -> None:
                         help="Answer yes to every overwrite prompt.")
     parser.add_argument("--scale", choices=["small", "medium", "large"],
                         help="Override the DATA_SCALE preset for this run.")
+    parser.add_argument("--seed", type=int,
+                        help="Override the random seed for this run.")
+    parser.add_argument("--anchor", metavar="ISO8601",
+                        help="Pin the simulated 'now' so the dataset is "
+                             "bit-for-bit reproducible (e.g. 2026-08-26T00:00:00Z).")
     parser.add_argument("--skip-analytics", action="store_true")
     parser.add_argument("--export", metavar="DIR",
                         help="Export analytics results to CSVs in DIR.")
@@ -67,6 +72,10 @@ def main() -> None:
     insert_args = ["02_Insert_Data.py"] + (["--yes"] if args.yes else [])
     if args.scale:
         insert_args += ["--scale", args.scale]
+    if args.seed is not None:
+        insert_args += ["--seed", str(args.seed)]
+    if args.anchor:
+        insert_args += ["--anchor", args.anchor]
     timings.append(("Insert data", run_stage("Stage 2 - Generate + load data", insert_args)))
 
     timings.append(("Verify data", run_stage("Stage 3 - Verify integrity", ["03_Verify_Data.py", "--verbose"])))
