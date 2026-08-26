@@ -4,7 +4,7 @@
 > Regenerate with `python 05_Export_Documentation.py` after any schema change.
 
 - **Schema:** `campuspulse`
-- **Generated:** 2026-08-26 04:11 UTC
+- **Generated:** 2026-08-26 04:15 UTC
 - **Source:** PostgreSQL `information_schema` + `pg_catalog` of the live database
 
 ---
