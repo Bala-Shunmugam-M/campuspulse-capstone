@@ -901,11 +901,17 @@ class CampusPulseGenerator:
             ) if acknowledged_at else created_at
             if resolved_at and in_prog_at > resolved_at:
                 in_prog_at = acknowledged_at or created_at
-            if in_prog_at <= self.now:
-                self.out.status_history.append(
-                    (self.uid(), inc_id, "in_progress", self.pick(staff),
-                     "Work order dispatched to service team.", in_prog_at)
-                )
+            # The incident genuinely is in this state, so the trail has to
+            # record it. Dropping the row when the drawn timestamp overshoots
+            # the anchor left the current status with no history entry at all;
+            # clamp instead. acknowledged_at is already <= now (incidents with
+            # a future lifecycle timestamp are skipped outright), so clamping
+            # can never push in_progress before the acknowledgement.
+            in_prog_at = min(in_prog_at, self.now)
+            self.out.status_history.append(
+                (self.uid(), inc_id, "in_progress", self.pick(staff),
+                 "Work order dispatched to service team.", in_prog_at)
+            )
         if resolved_at:
             self.out.status_history.append(
                 (self.uid(), inc_id, "resolved", self.pick(staff),
