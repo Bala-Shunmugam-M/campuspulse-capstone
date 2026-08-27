@@ -163,7 +163,7 @@ the analytics suite computes exactly this.
 
 ```bash
 # 1. Clone and enter
-git clone https://github.com/YOUR_USERNAME/campuspulse-capstone.git
+git clone https://github.com/Bala-Shunmugam-M/campuspulse-capstone.git
 cd campuspulse-capstone
 
 # 2. Virtual environment

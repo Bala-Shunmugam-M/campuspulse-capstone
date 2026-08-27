@@ -23,7 +23,7 @@ and a running analytics suite. Budget about 10 minutes.
 ## Step 1 — Get the code
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/campuspulse-capstone.git
+git clone https://github.com/Bala-Shunmugam-M/campuspulse-capstone.git
 cd campuspulse-capstone
 ```
 
