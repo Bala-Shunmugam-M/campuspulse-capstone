@@ -150,10 +150,20 @@ Expected:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `could not translate host name` | Supabase direct hosts are IPv6-only on newer projects; your network is IPv4-only. | Go to **Database → Connection Pooling**, switch to **Session** mode, and copy the values into `POOLER_HOST`, `POOLER_PORT` and `POOLER_USER` in `.env`. The scripts fall back automatically. |
+| A long hang, then `Network is unreachable` or `Connection timed out` | Supabase direct hosts are IPv6-only on newer projects and your network is IPv4-only. Note the symptom: DNS **succeeds** (the AAAA record resolves fine without IPv6 connectivity), so you will *not* see `could not translate host name`. The failure happens at connect time. | Go to **Database → Connection Pooling**, switch to **Session** mode, and copy the values into `POOLER_HOST`, `POOLER_PORT` and `POOLER_USER` in `.env`. The scripts then fall back automatically. |
+| `could not translate host name` | `DB_HOST` is misspelt, or the project was deleted. | Re-copy the host from **Settings → Database**. |
 | `password authentication failed` | Wrong password. | Reset it under **Settings → Database → Reset database password**. |
 | `Connection timed out` | Your campus or corporate firewall blocks outbound port 5432. | Try a mobile hotspot, or use the pooler on port 6543. |
 | `Project is paused` | Free-tier projects sleep after inactivity. | Open the dashboard and resume the project. |
+
+> **Fill in the pooler values up front if you are on an IPv4-only network.**
+> The fallback works, but it is not instant: the direct host is retried three
+> times with backoff before the pooler is tried, so you can wait anywhere from
+> a few seconds (if the stack rejects the IPv6 route immediately) to around
+> three minutes (if the route is silently dropped) before the connection
+> succeeds. A measured run against a deliberately unreachable host took 190 s.
+> With `POOLER_HOST` set, the direct attempt still runs first — so on a known
+> IPv4-only network, point `DB_HOST` at the pooler as well to skip the wait.
 
 ---
 
