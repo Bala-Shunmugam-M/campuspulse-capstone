@@ -78,15 +78,11 @@ institutions, each seeing only its own data.
 ### Verified run output
 
 Every figure below is from an actual execution against a live Supabase instance,
-not an estimate.
+not an estimate. Some of them reproduce anywhere and some do not, so the section
+says which is which rather than leaving you to discover it.
 
-```
-Schema build      16 tables · 4 views · 68 indexes · 9 ENUMs · 34 FKs     6.5 s
-Data generation   42,763 rows generated in memory                         0.3 s
-Data load         42,763 rows inserted via execute_values                13.1 s
-Integrity audit   47 of 47 checks passed                                   ✓
-Analytics         14 queries · 162 rows returned                        3.34 s
-```
+**Reproducible — same seed and anchor, any machine.** This is the dataset the
+rest of this README describes:
 
 | Table | Rows | Table | Rows |
 |---|---:|---|---:|
@@ -99,11 +95,35 @@ Analytics         14 queries · 162 rows returned                        3.34 s
 | `team_members` | 78 | `attachments` | 950 |
 | `assets` | 2,499 | `feedback` | 565 |
 
-Reproduce these exact figures with:
+42,763 rows in total, and **47 of 47 integrity checks pass**. Regenerate exactly
+this dataset with:
 
 ```bash
 python 02_Insert_Data.py --yes --seed 42 --anchor 2026-08-26T00:00:00Z
 ```
+
+**Machine-dependent — wall clock.** Timings track the host and the round-trip
+latency to the Supabase region, so they are reported from two machines rather
+than one, to make the spread visible:
+
+```
+                                                          machine A   machine B
+Schema build      16 tables · 4 views · 68 indexes · 9 ENUMs   6.5 s       3.2 s
+Data generation   42,763 rows generated in memory              0.3 s      0.83 s
+Data load         42,763 rows inserted via execute_values     13.1 s      14.5 s
+Integrity audit   47 of 47 checks passed                           ✓           ✓
+Analytics         14 queries                                  3.34 s       2.7 s
+```
+
+- **machine A** — Windows 11, Python 3.12.10
+- **machine B** — Windows 11, Python 3.13.14, IPv6 link to the same instance
+
+One analytics figure is clock-dependent rather than seed-dependent, and it is
+worth knowing why. Q11 buckets the open backlog by `now() - created_at`, so how
+many age buckets it returns depends on how far the run date has drifted from the
+anchor. On the anchor date the 14 queries return 162 rows; a day later they
+return 161, because the "under 24h" bucket has emptied. The dataset underneath is
+identical either way.
 
 ---
 
