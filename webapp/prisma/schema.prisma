@@ -184,6 +184,7 @@ model UserAccount {
   campusUser   CampusUser       @relation(fields: [userId], references: [id])
   roles        RoleAssignment[] @relation("AccountRoles")
   grantedRoles RoleAssignment[] @relation("RoleGrantor")
+  reports      Report[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -204,5 +205,69 @@ model RoleAssignment {
 
   @@index([userAccountId, revokedAt])
   @@map("role_assignments")
+  @@schema("compliance")
+}
+
+enum Severity {
+  low
+  moderate
+  high
+  severe
+
+  @@map("severity")
+  @@schema("compliance")
+}
+
+enum ReportChannel {
+  web
+  kiosk
+  email_ingest
+  phone_transcribed
+
+  @@map("report_channel")
+  @@schema("compliance")
+}
+
+enum ReportStatus {
+  received
+  triaged
+  merged
+  rejected
+
+  @@map("report_status")
+  @@schema("compliance")
+}
+
+model Report {
+  id                   String       @id @default(uuid()) @db.Uuid
+  institutionId        String       @map("institution_id") @db.Uuid
+  referenceCode        String       @unique @map("reference_code")
+  accessSecretHash     String?      @map("access_secret_hash")
+  reporterUserId       String?      @map("reporter_user_id") @db.Uuid
+  isAnonymous          Boolean      @map("is_anonymous")
+  categoryId           String?      @map("category_id") @db.Uuid
+  locationId           String?      @map("location_id") @db.Uuid
+  occurredAt           DateTime?    @map("occurred_at")
+  submittedAt          DateTime     @default(now()) @map("submitted_at")
+  title                String
+  description          String
+  severitySelfReported Severity     @map("severity_self_reported")
+  channel              ReportChannel
+  status               ReportStatus @default(received)
+  ipHash               String?      @map("ip_hash")
+  userAgent            String?      @map("user_agent")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+  deletedAt            DateTime?    @map("deleted_at")
+
+  /// Generated and maintained by Postgres from title+description. Declared so
+  /// Prisma Migrate does not drop it; Unsupported keeps it out of Prisma Client.
+  searchTsv Unsupported("tsvector")? @map("search_tsv")
+
+  reporter UserAccount? @relation(fields: [reporterUserId], references: [id])
+
+  @@index([institutionId, status, submittedAt(sort: Desc)])
+  @@index([searchTsv(ops: raw("tsvector_ops"))], type: Gin, map: "reports_search_idx")
+  @@map("reports")
   @@schema("compliance")
 }
