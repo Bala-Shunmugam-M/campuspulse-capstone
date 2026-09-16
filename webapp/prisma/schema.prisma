@@ -1,5 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -8,18 +8,56 @@ datasource db {
   schemas  = ["compliance", "campuspulse"]
 }
 
+// ---------------------------------------------------------------------------
+// campuspulse — owned by the Python data project. Described here in full so
+// Prisma Migrate does not "correct" it, but held at arm's length: everything
+// this application has no business touching carries @ignore, which keeps it
+// out of Prisma Client entirely while leaving it intact in the database.
+// ---------------------------------------------------------------------------
+
+enum CampusUserRole {
+  student
+  faculty
+  admin
+  technician
+
+  @@map("user_role")
+  @@schema("campuspulse")
+}
+
+enum LocationType {
+  campus
+  building
+  floor
+  room
+  area
+
+  @@map("location_type")
+  @@schema("campuspulse")
+}
+
+enum CategoryType {
+  issue_category
+  asset_category
+
+  @@map("category_type")
+  @@schema("campuspulse")
+}
+
 /// Read-only. Owned by the Python data project; never written to from here.
 model Institution {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
   code      String   @unique
   domain    String
   city      String?
-  timezone  String
-  isActive  Boolean  @map("is_active")
-  createdAt DateTime @map("created_at")
+  timezone  String   @default("Asia/Kolkata")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  users     CampusUser[]
+  users      CampusUser[]
+  locations  Location[]   @ignore
+  categories Category[]   @ignore
 
   @@map("institutions")
   @@schema("campuspulse")
@@ -27,18 +65,90 @@ model Institution {
 
 /// Read-only. The campus directory; accounts attach to these rows.
 model CampusUser {
-  id            String   @id @default(uuid()) @db.Uuid
-  institutionId String   @map("institution_id") @db.Uuid
-  fullName      String   @map("full_name")
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institutionId String         @map("institution_id") @db.Uuid
+  fullName      String         @map("full_name")
   email         String
   phone         String?
+  /// campuspulse's own enum. Present so migrations leave it alone; @ignore keeps
+  /// it out of Prisma Client, so the read-only boundary is enforced, not merely
+  /// documented.
+  role          CampusUserRole @default(student) @ignore
   department    String?
-  isActive      Boolean  @map("is_active")
-  createdAt     DateTime @map("created_at")
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  institution   Institution @relation(fields: [institutionId], references: [id])
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@unique([institutionId, email], map: "users_email_unique_per_tenant")
   @@unique([id, institutionId], map: "users_tenant_key")
   @@map("users")
   @@schema("campuspulse")
+}
+
+/// Referenced by compliance rows via a bare UUID column. Never read through
+/// Prisma Client from this application.
+model Location {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institutionId String       @map("institution_id") @db.Uuid
+  parentId      String?      @map("parent_id") @db.Uuid
+  name          String
+  locationType  LocationType @map("location_type")
+  code          String?
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  parent      Location?   @relation("LocationTree", fields: [parentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  children    Location[]  @relation("LocationTree")
+
+  @@unique([id, institutionId], map: "locations_tenant_key")
+  @@map("locations")
+  @@schema("campuspulse")
+  @@ignore
+}
+
+/// Referenced by compliance rows via a bare UUID column. Never read through
+/// Prisma Client from this application.
+model Category {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institutionId String       @map("institution_id") @db.Uuid
+  parentId      String?      @map("parent_id") @db.Uuid
+  name          String
+  categoryType  CategoryType @map("category_type")
+  slaHours      Int?         @map("sla_hours")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  parent      Category?   @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  children    Category[]  @relation("CategoryTree")
+
+  @@unique([id, institutionId], map: "categories_tenant_key")
+  @@map("categories")
+  @@schema("campuspulse")
+  @@ignore
+}
+
+// ---------------------------------------------------------------------------
+// compliance — owned by this application.
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id                 BigInt   @id @default(autoincrement())
+  institutionId      String   @map("institution_id") @db.Uuid
+  actorUserAccountId String?  @map("actor_user_account_id") @db.Uuid
+  actorLabel         String   @map("actor_label")
+  action             String
+  entityType         String   @map("entity_type")
+  entityId           String   @map("entity_id") @db.Uuid
+  before             Json?
+  after              Json?
+  requestId          String   @map("request_id") @db.Uuid
+  ipHash             String?  @map("ip_hash")
+  userAgent          String?  @map("user_agent")
+  occurredAt         DateTime @default(now()) @map("occurred_at")
+
+  @@index([entityType, entityId, occurredAt(sort: Desc)])
+  @@index([institutionId, occurredAt(sort: Desc)])
+  @@map("audit_events")
+  @@schema("compliance")
 }
