@@ -188,6 +188,7 @@ model UserAccount {
   cases        Case[]
   sessions     Session[]
   partyIn      CaseParty[]
+  authoredNotes CaseNote[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -322,6 +323,7 @@ model Case {
   reports         CaseReport[]
   statusHistory   CaseStatusHistory[]
   parties         CaseParty[]
+  notes           CaseNote[]
 
   @@unique([institutionId, caseNumber])
   @@index([institutionId, status, slaDueAt])
@@ -419,5 +421,34 @@ model CaseParty {
 
   @@index([caseId, deletedAt])
   @@map("case_parties")
+  @@schema("compliance")
+}
+
+enum NoteVisibility {
+  internal
+  shared_with_parties
+  reporter_visible
+
+  @@map("note_visibility")
+  @@schema("compliance")
+}
+
+/// Investigation notes. Visibility is applied in the query that fetches them,
+/// never by hiding rows after the fact.
+model CaseNote {
+  id         String         @id @default(uuid()) @db.Uuid
+  caseId     String         @map("case_id") @db.Uuid
+  authorId   String         @map("author_id") @db.Uuid
+  body       String
+  visibility NoteVisibility
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  deletedAt  DateTime?      @map("deleted_at")
+
+  case   Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  author UserAccount @relation(fields: [authorId], references: [id])
+
+  @@index([caseId, deletedAt, createdAt])
+  @@map("case_notes")
   @@schema("compliance")
 }
