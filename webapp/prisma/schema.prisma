@@ -186,6 +186,7 @@ model UserAccount {
   grantedRoles RoleAssignment[] @relation("RoleGrantor")
   reports      Report[]
   cases        Case[]
+  sessions     Session[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -365,5 +366,25 @@ model CaseNumberCounter {
 
   @@id([institutionId, year])
   @@map("case_number_counters")
+  @@schema("compliance")
+}
+
+/// Session authority. Auth.js v5 cannot use its database session strategy with
+/// the Credentials provider, so the JWT stays as transport and carries only this
+/// row's id; every request loads the row, which is what makes revocation take
+/// effect immediately rather than at token expiry.
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  userAccountId String    @map("user_account_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at")
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+  ipHash        String?   @map("ip_hash")
+  userAgent     String?   @map("user_agent")
+
+  account UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
   @@schema("compliance")
 }

@@ -60,6 +60,12 @@ describe("database invariants that Prisma cannot express", () => {
     expect(n, "compliance.next_case_number is missing; a migration dropped it").toBe(1);
   });
 
+  it("keeps the live-session partial index", async () => {
+    const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'sessions_live_by_account'`);
+    expect(n).toBe(1);
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua
