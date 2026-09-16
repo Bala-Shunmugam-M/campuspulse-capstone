@@ -132,9 +132,15 @@ describe("listCases assignee filter", () => {
   });
 
   it("returns only unassigned cases for \"unassigned\"", async () => {
-    const loose = await aCase();
+    const assigned = await aCase();
+    await assignCase(admin, assigned, officerAccountId, meta());
+
     const rows = await listCases(admin, { assignedTo: "unassigned" });
+
+    // Asserted as a property rather than by hunting for one row: listCases caps
+    // at 200 ordered by SLA date, so a freshly created case need not be on the
+    // page even though the filter is working.
     expect(rows.every((c) => c.assignedOfficerId === null)).toBe(true);
-    expect(rows.map((c) => c.id)).toContain(loose);
+    expect(rows.map((c) => c.id)).not.toContain(assigned);
   });
 });
