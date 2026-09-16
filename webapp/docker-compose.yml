@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: compliance-db
+    environment:
+      POSTGRES_USER: compliance
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: compliance
+    ports:
+      - "5433:5432"
+    volumes:
+      - compliance-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compliance -d compliance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  compliance-pgdata:
