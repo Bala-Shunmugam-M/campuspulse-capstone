@@ -61,6 +61,7 @@ export default async function CasesPage({
   const filter = {
     status: STATUSES.includes(status as CaseStatus) ? (status as CaseStatus) : undefined,
     severity: SEVERITY_ORDER.includes(severity as Severity) ? (severity as Severity) : undefined,
+    assignedTo: assignedTo || undefined,
   };
 
   const canTriage = actor.roles.some((r) => r === "officer" || r === "admin");
@@ -127,6 +128,18 @@ export default async function CasesPage({
                 {s}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-slate-600">Assignee</span>
+          <select
+            name="assignedTo"
+            defaultValue={assignedTo ?? ""}
+            className="rounded border border-slate-300 px-2 py-1 text-sm"
+          >
+            <option value="">Anyone</option>
+            <option value="me">Mine</option>
+            <option value="unassigned">Unassigned</option>
           </select>
         </label>
         <button
