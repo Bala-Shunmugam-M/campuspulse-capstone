@@ -187,6 +187,7 @@ model UserAccount {
   reports      Report[]
   cases        Case[]
   sessions     Session[]
+  partyIn      CaseParty[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -320,6 +321,7 @@ model Case {
   assignedOfficer UserAccount?        @relation(fields: [assignedOfficerId], references: [id])
   reports         CaseReport[]
   statusHistory   CaseStatusHistory[]
+  parties         CaseParty[]
 
   @@unique([institutionId, caseNumber])
   @@index([institutionId, status, slaDueAt])
@@ -386,5 +388,36 @@ model Session {
   account UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
+  @@schema("compliance")
+}
+
+enum PartyRole {
+  complainant
+  respondent
+  witness
+  advisor
+
+  @@map("party_role")
+  @@schema("compliance")
+}
+
+/// A person attached to a case. Either an account, or a name with no account,
+/// or anonymous with neither -- the last is a real party this system exists to
+/// carry, not a missing value. Enforced by case_parties_identified.
+model CaseParty {
+  id            String    @id @default(uuid()) @db.Uuid
+  caseId        String    @map("case_id") @db.Uuid
+  userAccountId String?   @map("user_account_id") @db.Uuid
+  externalName  String?   @map("external_name")
+  partyRole     PartyRole @map("party_role")
+  isAnonymous   Boolean   @default(false) @map("is_anonymous")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  case    Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  account UserAccount? @relation(fields: [userAccountId], references: [id])
+
+  @@index([caseId, deletedAt])
+  @@map("case_parties")
   @@schema("compliance")
 }
