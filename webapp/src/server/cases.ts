@@ -20,7 +20,12 @@ export type TriageInput = {
   confidentiality: Confidentiality;
 };
 
-export type CaseFilter = { status?: CaseStatus; severity?: Severity };
+export type CaseFilter = {
+  status?: CaseStatus;
+  severity?: Severity;
+  /** An account id, "me" for the actor, or "unassigned". */
+  assignedTo?: string;
+};
 
 export type CaseSummary = {
   id: string;
@@ -107,6 +112,12 @@ export async function triageReport(
   return { caseNumber };
 }
 
+function assigneeWhere(actor: Actor, assignedTo: string | undefined) {
+  if (!assignedTo) return {};
+  if (assignedTo === "unassigned") return { assignedOfficerId: null };
+  return { assignedOfficerId: assignedTo === "me" ? actor.accountId : assignedTo };
+}
+
 export async function listCases(actor: Actor, filter: CaseFilter): Promise<CaseSummary[]> {
   requireRole(actor, ["officer", "investigator", "admin"]);
 
@@ -116,6 +127,7 @@ export async function listCases(actor: Actor, filter: CaseFilter): Promise<CaseS
       deletedAt: null,
       status: filter.status,
       severity: filter.severity,
+      ...assigneeWhere(actor, filter.assignedTo),
       // Sealed cases never appear in a queue; only a dpo reaches them by id.
       confidentiality: { not: "sealed" },
     },
@@ -233,6 +245,67 @@ export async function changeCaseStatus(
         entityId: kase.id,
         before: { status: kase.status },
         after: { status: to, reason },
+      },
+    );
+  });
+}
+
+/**
+ * Assign a case, or clear its assignment with null. The institution check is
+ * against the ASSIGNEE's account, not the actor's -- an officer passing a
+ * colleague's id from another tenant is the case that matters here.
+ */
+export async function assignCase(
+  actor: Actor,
+  caseId: string,
+  officerAccountId: string | null,
+  meta: RequestMeta,
+): Promise<void> {
+  requireRole(actor, ["officer", "admin"]);
+
+  const kase = await prisma.case.findFirst({ where: { id: caseId, deletedAt: null } });
+  if (!kase) throw new NotFoundError("That case does not exist.");
+  requireSameInstitution(actor, kase.institutionId);
+
+  if (officerAccountId !== null) {
+    const assignee = await prisma.userAccount.findFirst({
+      where: { id: officerAccountId, deletedAt: null },
+      select: { institutionId: true },
+    });
+    if (!assignee) throw new NotFoundError("That account does not exist.");
+    if (assignee.institutionId !== kase.institutionId) {
+      throw new ForbiddenError("You are not permitted to access this record.");
+    }
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.case.update({
+      where: { id: kase.id },
+      data: {
+        assignedOfficerId: officerAccountId,
+        // First officer action, whichever came first. A product definition
+        // rather than a data one, so it lives here and not in a trigger.
+        firstResponseAt: kase.firstResponseAt ?? now,
+      },
+    });
+    await withAudit(
+      tx,
+      {
+        actorAccountId: actor.accountId,
+        actorLabel: actor.accountId,
+        institutionId: kase.institutionId,
+        requestId: meta.requestId,
+        ipHash: meta.ipHash,
+        userAgent: meta.userAgent,
+      },
+      {
+        action: officerAccountId ? "case.assigned" : "case.unassigned",
+        entityType: "case",
+        entityId: kase.id,
+        before: { assignedOfficerId: kase.assignedOfficerId },
+        after: { assignedOfficerId: officerAccountId },
       },
     );
   });

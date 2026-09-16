@@ -52,12 +52,12 @@ async function triage(formData: FormData) {
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; severity?: string }>;
+  searchParams: Promise<{ status?: string; severity?: string; assignedTo?: string }>;
 }) {
   const actor = await currentActor();
   if (!actor) redirect("/login");
 
-  const { status, severity } = await searchParams;
+  const { status, severity, assignedTo } = await searchParams;
   const filter = {
     status: STATUSES.includes(status as CaseStatus) ? (status as CaseStatus) : undefined,
     severity: SEVERITY_ORDER.includes(severity as Severity) ? (severity as Severity) : undefined,
