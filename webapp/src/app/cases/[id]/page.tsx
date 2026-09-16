@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { currentActor } from "@/lib/auth/actor";
 import { getCase } from "@/server/cases";
 import { prisma } from "@/lib/db";
@@ -22,9 +23,9 @@ function Refusal({ message }: { message: string }) {
         {message}
       </p>
       <p className="mt-4 text-sm">
-        <a className="underline" href="/cases">
+        <Link className="underline" href="/cases">
           Back to the queue
-        </a>
+        </Link>
       </p>
     </main>
   );
@@ -150,9 +151,9 @@ export default async function CaseDetailPage({
       </section>
 
       <p className="text-sm">
-        <a className="underline" href="/cases">
+        <Link className="underline" href="/cases">
           Back to the queue
-        </a>
+        </Link>
       </p>
     </main>
   );

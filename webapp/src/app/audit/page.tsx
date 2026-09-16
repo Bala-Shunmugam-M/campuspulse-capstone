@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { currentActor } from "@/lib/auth/actor";
 import { listAuditEvents } from "@/server/audit";
 import { ForbiddenError } from "@/lib/errors";
@@ -34,9 +35,9 @@ export default async function AuditPage({
           You are not permitted to view the audit log.
         </p>
         <p className="mt-4 text-sm">
-          <a className="underline" href="/cases">
+          <Link className="underline" href="/cases">
             Back to the queue
-          </a>
+          </Link>
         </p>
       </main>
     );
@@ -51,9 +52,9 @@ export default async function AuditPage({
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-10">
       <header className="flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Audit log</h1>
-        <a className="text-sm text-slate-600 underline" href="/cases">
+        <Link className="text-sm text-slate-600 underline" href="/cases">
           Case queue
-        </a>
+        </Link>
       </header>
 
       <p className="text-sm text-slate-600">

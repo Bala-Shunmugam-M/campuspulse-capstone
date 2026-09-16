@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { currentActor } from "@/lib/auth/actor";
@@ -92,9 +93,9 @@ export default async function CasesPage({
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10">
       <header className="flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Case queue</h1>
-        <a className="text-sm text-slate-600 underline" href="/audit">
+        <Link className="text-sm text-slate-600 underline" href="/audit">
           Audit log
-        </a>
+        </Link>
       </header>
 
       <form method="GET" className="flex flex-wrap items-end gap-3">
@@ -157,9 +158,9 @@ export default async function CasesPage({
               {cases.map((c) => (
                 <tr key={c.id} className="border-b border-slate-200">
                   <td className="py-2 pr-3 font-mono">
-                    <a className="underline" href={`/cases/${c.id}`}>
+                    <Link className="underline" href={`/cases/${c.id}`}>
                       {c.caseNumber}
-                    </a>
+                    </Link>
                   </td>
                   <td className="py-2 pr-3">{c.title}</td>
                   <td className="py-2 pr-3">

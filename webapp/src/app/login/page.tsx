@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { signIn } from "@/lib/auth/config";
 
 export default async function LoginPage({
@@ -53,7 +54,7 @@ export default async function LoginPage({
       </form>
 
       <p className="text-sm text-slate-600">
-        <a className="underline" href="/report">Report an incident without signing in</a>
+        <Link className="underline" href="/report">Report an incident without signing in</Link>
       </p>
     </main>
   );

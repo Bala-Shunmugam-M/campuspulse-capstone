@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 /**
@@ -46,9 +47,9 @@ export default async function SubmittedPage() {
 
       <p className="text-sm text-slate-600">
         {accessSecret ? (
-          <a className="underline" href="/report/status">Check the status of this report</a>
+          <Link className="underline" href="/report/status">Check the status of this report</Link>
         ) : (
-          <a className="underline" href="/cases">Go to your dashboard</a>
+          <Link className="underline" href="/cases">Go to your dashboard</Link>
         )}
       </p>
     </main>
