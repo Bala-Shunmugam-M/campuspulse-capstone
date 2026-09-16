@@ -185,6 +185,7 @@ model UserAccount {
   roles        RoleAssignment[] @relation("AccountRoles")
   grantedRoles RoleAssignment[] @relation("RoleGrantor")
   reports      Report[]
+  cases        Case[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -269,5 +270,87 @@ model Report {
   @@index([institutionId, status, submittedAt(sort: Desc)])
   @@index([searchTsv(ops: raw("tsvector_ops"))], type: Gin, map: "reports_search_idx")
   @@map("reports")
+  @@schema("compliance")
+}
+
+enum CaseStatus {
+  submitted
+  triaged
+  under_investigation
+  pending_decision
+  resolved
+  closed
+  dismissed
+  appealed
+
+  @@map("case_status")
+  @@schema("compliance")
+}
+
+enum Confidentiality {
+  standard
+  restricted
+  sealed
+
+  @@map("confidentiality")
+  @@schema("compliance")
+}
+
+model Case {
+  id                String          @id @default(uuid()) @db.Uuid
+  institutionId     String          @map("institution_id") @db.Uuid
+  caseNumber        String          @map("case_number")
+  title             String
+  summary           String?
+  categoryId        String?         @map("category_id") @db.Uuid
+  severity          Severity
+  status            CaseStatus      @default(submitted)
+  assignedOfficerId String?         @map("assigned_officer_id") @db.Uuid
+  openedAt          DateTime        @default(now()) @map("opened_at")
+  slaDueAt          DateTime        @map("sla_due_at")
+  firstResponseAt   DateTime?       @map("first_response_at")
+  resolvedAt        DateTime?       @map("resolved_at")
+  closedAt          DateTime?       @map("closed_at")
+  confidentiality   Confidentiality @default(standard)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+
+  assignedOfficer UserAccount?        @relation(fields: [assignedOfficerId], references: [id])
+  reports         CaseReport[]
+  statusHistory   CaseStatusHistory[]
+
+  @@unique([institutionId, caseNumber])
+  @@index([institutionId, status, slaDueAt])
+  @@index([assignedOfficerId, status])
+  @@map("cases")
+  @@schema("compliance")
+}
+
+model CaseReport {
+  caseId    String  @map("case_id") @db.Uuid
+  reportId  String  @map("report_id") @db.Uuid
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@id([caseId, reportId])
+  @@map("case_reports")
+  @@schema("compliance")
+}
+
+model CaseStatusHistory {
+  id          String      @id @default(uuid()) @db.Uuid
+  caseId      String      @map("case_id") @db.Uuid
+  fromStatus  CaseStatus? @map("from_status")
+  toStatus    CaseStatus  @map("to_status")
+  changedById String?     @map("changed_by") @db.Uuid
+  reason      String?
+  changedAt   DateTime    @default(now()) @map("changed_at")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, changedAt])
+  @@map("case_status_history")
   @@schema("compliance")
 }

@@ -164,3 +164,32 @@ export async function lookupAnonymousReport(
     title: report.title,
   };
 }
+
+export type UntriagedReport = {
+  id: string;
+  referenceCode: string;
+  title: string;
+  severitySelfReported: string;
+  submittedAt: Date;
+  isAnonymous: boolean;
+};
+
+/** The officer's inbox: reports in this institution that have not become cases. */
+export async function listUntriagedReports(actor: Actor): Promise<UntriagedReport[]> {
+  requireRole(actor, ["officer", "admin"]);
+
+  const rows = await prisma.report.findMany({
+    where: { institutionId: actor.institutionId, status: "received", deletedAt: null },
+    orderBy: { submittedAt: "asc" },
+    take: 100,
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    referenceCode: r.referenceCode,
+    title: r.title,
+    severitySelfReported: r.severitySelfReported,
+    submittedAt: r.submittedAt,
+    isAnonymous: r.isAnonymous,
+  }));
+}
