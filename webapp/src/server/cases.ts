@@ -2,7 +2,8 @@ import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
-import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
+import { canTransition } from "@/lib/cases/transitions";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -165,4 +166,74 @@ export async function getCase(actor: Actor, caseId: string) {
       changedAt: h.changedAt,
     })),
   };
+}
+
+/**
+ * Move a case to a new status. The whole change -- the status, its history row,
+ * the audit event and any notifications -- happens in one transaction, so a
+ * case never ends up in a state its own history does not record.
+ */
+export async function changeCaseStatus(
+  actor: Actor,
+  caseId: string,
+  to: CaseStatus,
+  reason: string | null,
+  meta: RequestMeta,
+): Promise<void> {
+  requireRole(actor, ["officer", "investigator", "admin", "dpo"]);
+
+  const kase = await prisma.case.findFirst({ where: { id: caseId, deletedAt: null } });
+  if (!kase) throw new NotFoundError("That case does not exist.");
+  requireSameInstitution(actor, kase.institutionId);
+
+  if (!canTransition(kase.status, to, actor.roles)) {
+    throw new InvalidTransitionError(
+      `A case cannot move from ${kase.status} to ${to}.`,
+    );
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.case.update({
+      where: { id: kase.id },
+      data: {
+        status: to,
+        // Stamped once, on first entry. Re-opening an appealed case and
+        // resolving it again must not rewrite when it was first resolved.
+        resolvedAt: to === "resolved" && !kase.resolvedAt ? now : kase.resolvedAt,
+        closedAt: to === "closed" && !kase.closedAt ? now : kase.closedAt,
+        firstResponseAt: kase.firstResponseAt ?? now,
+      },
+    });
+
+    await tx.caseStatusHistory.create({
+      data: {
+        caseId: kase.id,
+        fromStatus: kase.status,
+        toStatus: to,
+        changedById: actor.accountId,
+        reason,
+      },
+    });
+
+    await withAudit(
+      tx,
+      {
+        actorAccountId: actor.accountId,
+        actorLabel: actor.accountId,
+        institutionId: kase.institutionId,
+        requestId: meta.requestId,
+        ipHash: meta.ipHash,
+        userAgent: meta.userAgent,
+      },
+      {
+        action: "case.status_changed",
+        entityType: "case",
+        entityId: kase.id,
+        before: { status: kase.status },
+        after: { status: to, reason },
+      },
+    );
+  });
 }
