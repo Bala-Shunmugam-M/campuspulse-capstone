@@ -52,6 +52,14 @@ describe("database invariants that Prisma cannot express", () => {
     expect({ column, index }).toEqual({ column: 1, index: 1 });
   });
 
+  it("keeps the case-number allocator function", async () => {
+    const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_proc p
+      JOIN pg_namespace ns ON ns.oid = p.pronamespace
+      WHERE ns.nspname = 'compliance' AND p.proname = 'next_case_number'`);
+    expect(n, "compliance.next_case_number is missing; a migration dropped it").toBe(1);
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua

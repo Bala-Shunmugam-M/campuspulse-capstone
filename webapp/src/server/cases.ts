@@ -49,10 +49,12 @@ export async function triageReport(
   const slaDueAt = new Date(openedAt.getTime() + SLA_HOURS[input.severity] * 3_600_000);
 
   const caseNumber = await prisma.$transaction(async (tx) => {
-    const taken = await tx.case.count({
-      where: { institutionId: report.institutionId, caseNumber: { startsWith: `CASE-${year}-` } },
-    });
-    const number = `CASE-${year}-${String(taken + 1).padStart(4, "0")}`;
+    // Allocated by the database rather than by counting rows. A count-and-add-one
+    // hands every concurrent triage the same answer; the function takes a row
+    // lock on the counter, so callers serialise instead of colliding.
+    const [allocated] = await tx.$queryRaw<{ next_case_number: string }[]>`
+      SELECT compliance.next_case_number(${report.institutionId}::uuid, ${year}::int) AS next_case_number`;
+    const number = allocated.next_case_number;
 
     const created = await tx.case.create({
       data: {

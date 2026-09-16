@@ -354,3 +354,16 @@ model CaseStatusHistory {
   @@map("case_status_history")
   @@schema("compliance")
 }
+
+/// Allocates case numbers per institution and year. A counter row rather than a
+/// sequence because numbering restarts each year and is per tenant. The
+/// allocating function lives in SQL; see compliance.next_case_number.
+model CaseNumberCounter {
+  institutionId String @map("institution_id") @db.Uuid
+  year          Int
+  nextValue     Int    @default(1) @map("next_value")
+
+  @@id([institutionId, year])
+  @@map("case_number_counters")
+  @@schema("compliance")
+}
