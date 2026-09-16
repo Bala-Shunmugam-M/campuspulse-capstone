@@ -1,0 +1,44 @@
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["compliance", "campuspulse"]
+}
+
+/// Read-only. Owned by the Python data project; never written to from here.
+model Institution {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  code      String   @unique
+  domain    String
+  city      String?
+  timezone  String
+  isActive  Boolean  @map("is_active")
+  createdAt DateTime @map("created_at")
+
+  users     CampusUser[]
+
+  @@map("institutions")
+  @@schema("campuspulse")
+}
+
+/// Read-only. The campus directory; accounts attach to these rows.
+model CampusUser {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  fullName      String   @map("full_name")
+  email         String
+  phone         String?
+  department    String?
+  isActive      Boolean  @map("is_active")
+  createdAt     DateTime @map("created_at")
+
+  institution   Institution @relation(fields: [institutionId], references: [id])
+
+  @@unique([id, institutionId], map: "users_tenant_key")
+  @@map("users")
+  @@schema("campuspulse")
+}
