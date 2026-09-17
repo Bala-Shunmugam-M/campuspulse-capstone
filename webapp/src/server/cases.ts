@@ -4,6 +4,7 @@ import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
+import { caseAudience, notify } from "@/server/notifications";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -247,6 +248,14 @@ export async function changeCaseStatus(
         after: { status: to, reason },
       },
     );
+
+    // Inside the transaction, like the audit row. A notification announcing a
+    // change that then rolled back describes something that never happened.
+    await notify(tx, await caseAudience(tx, kase.id), {
+      caseId: kase.id,
+      subject: `${kase.caseNumber} is now ${to.replaceAll("_", " ")}`,
+      body: reason ?? `The case moved from ${kase.status} to ${to}.`,
+    });
   });
 }
 
@@ -308,5 +317,13 @@ export async function assignCase(
         after: { assignedOfficerId: officerAccountId },
       },
     );
+
+    if (officerAccountId) {
+      await notify(tx, [officerAccountId], {
+        caseId: kase.id,
+        subject: `${kase.caseNumber} has been assigned to you`,
+        body: kase.title,
+      });
+    }
   });
 }

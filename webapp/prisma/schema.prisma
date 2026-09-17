@@ -191,6 +191,7 @@ model UserAccount {
   authoredNotes CaseNote[]
   decidedOutcomes Outcome[]
   uploadedEvidence EvidenceFile[]
+  notifications Notification[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -329,6 +330,7 @@ model Case {
   notes           CaseNote[]
   outcome         Outcome?
   evidence        EvidenceFile[]
+  notifications   Notification[]
 
   @@unique([institutionId, caseNumber])
   @@index([institutionId, status, slaDueAt])
@@ -555,5 +557,24 @@ model EvidenceFile {
   @@index([caseId, deletedAt])
   @@index([reportId, deletedAt])
   @@map("evidence_files")
+  @@schema("compliance")
+}
+
+model Notification {
+  id          String        @id @default(uuid()) @db.Uuid
+  recipientId String        @map("recipient_id") @db.Uuid
+  caseId      String?       @map("case_id") @db.Uuid
+  channel     ReportChannel @default(web)
+  subject     String
+  body        String
+  isRead      Boolean       @default(false) @map("is_read")
+  readAt      DateTime?     @map("read_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  recipient UserAccount @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  case      Case?       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@map("notifications")
   @@schema("compliance")
 }

@@ -86,6 +86,15 @@ describe("database invariants that Prisma cannot express", () => {
     expect(n).toBe(1);
   });
 
+  it("keeps the unread-notification partial index and the activity feed view", async () => {
+    const idx = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'notifications_unread_by_recipient'`);
+    const view = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM information_schema.views
+      WHERE table_schema = 'compliance' AND table_name = 'activity_feed'`);
+    expect({ idx, view }).toEqual({ idx: 1, view: 1 });
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua

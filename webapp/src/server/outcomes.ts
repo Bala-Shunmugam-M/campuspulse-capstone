@@ -4,6 +4,7 @@ import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
+import { caseAudience, notify } from "@/server/notifications";
 import type { RequestMeta } from "@/server/accounts";
 
 export type OutcomeInput = {
@@ -106,6 +107,12 @@ export async function recordOutcome(
       entityId: kase.id,
       before: { status: kase.status },
       after: { status: "resolved" },
+    });
+
+    await notify(tx, await caseAudience(tx, kase.id), {
+      caseId: kase.id,
+      subject: `${kase.caseNumber} has been decided`,
+      body: `Finding: ${input.finding.replaceAll("_", " ")}.`,
     });
 
     return outcome.id;
