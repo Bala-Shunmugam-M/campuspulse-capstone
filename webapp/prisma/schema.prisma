@@ -192,6 +192,8 @@ model UserAccount {
   decidedOutcomes Outcome[]
   uploadedEvidence EvidenceFile[]
   notifications Notification[]
+  publishedPolicyVersions PolicyVersion[]         @relation("PolicyPublisher")
+  policyAcknowledgements  PolicyAcknowledgement[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -212,6 +214,76 @@ model RoleAssignment {
 
   @@index([userAccountId, revokedAt])
   @@map("role_assignments")
+  @@schema("compliance")
+}
+
+/// A rule the institution publishes. The policy is the stable identity; what it
+/// actually says lives in its versions, so superseding never edits the thing
+/// people have already acknowledged.
+model Policy {
+  id              String   @id @default(uuid()) @db.Uuid
+  institutionId   String   @map("institution_id") @db.Uuid
+  code            String
+  title           String
+  ownerDepartment String?  @map("owner_department")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  versions PolicyVersion[]
+
+  @@unique([institutionId, code])
+  @@index([institutionId, isActive])
+  @@map("policies")
+  @@schema("compliance")
+}
+
+/// One statement of a policy. Once published it is immutable except for
+/// effective_to, enforced by compliance.policy_versions_immutable rather than by
+/// the service that happens to write it -- "the policy said something different
+/// when I signed it" is precisely the claim this table exists to refute.
+model PolicyVersion {
+  id            String    @id @default(uuid()) @db.Uuid
+  policyId      String    @map("policy_id") @db.Uuid
+  versionNo     Int       @map("version_no")
+  bodyMarkdown  String    @map("body_markdown")
+  summary       String?
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  publishedById String?   @map("published_by") @db.Uuid
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  /// Generated and maintained by Postgres from summary+body. Declared so Prisma
+  /// Migrate does not drop it; Unsupported keeps it out of Prisma Client.
+  bodyTsv Unsupported("tsvector")? @map("body_tsv")
+
+  policy           Policy                  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  publishedBy      UserAccount?            @relation("PolicyPublisher", fields: [publishedById], references: [id])
+  acknowledgements PolicyAcknowledgement[]
+
+  @@unique([policyId, versionNo])
+  @@index([policyId, effectiveFrom])
+  @@index([bodyTsv(ops: raw("tsvector_ops"))], type: Gin, map: "policy_versions_body_idx")
+  @@map("policy_versions")
+  @@schema("compliance")
+}
+
+/// An acknowledgement names a VERSION, never a policy, so coverage resets when a
+/// policy is superseded. Any other reading lets "everyone has acknowledged the
+/// code of conduct" survive a rewrite of the code of conduct.
+model PolicyAcknowledgement {
+  id              String   @id @default(uuid()) @db.Uuid
+  policyVersionId String   @map("policy_version_id") @db.Uuid
+  userAccountId   String   @map("user_account_id") @db.Uuid
+  acknowledgedAt  DateTime @default(now()) @map("acknowledged_at")
+
+  version PolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+  account UserAccount   @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([policyVersionId, userAccountId])
+  @@index([userAccountId, acknowledgedAt])
+  @@map("policy_acknowledgements")
   @@schema("compliance")
 }
 
