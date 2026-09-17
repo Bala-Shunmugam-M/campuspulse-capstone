@@ -190,6 +190,7 @@ model UserAccount {
   partyIn      CaseParty[]
   authoredNotes CaseNote[]
   decidedOutcomes Outcome[]
+  uploadedEvidence EvidenceFile[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -270,6 +271,7 @@ model Report {
   searchTsv Unsupported("tsvector")? @map("search_tsv")
 
   reporter UserAccount? @relation(fields: [reporterUserId], references: [id])
+  evidence             EvidenceFile[]
 
   @@index([institutionId, status, submittedAt(sort: Desc)])
   @@index([searchTsv(ops: raw("tsvector_ops"))], type: Gin, map: "reports_search_idx")
@@ -326,6 +328,7 @@ model Case {
   parties         CaseParty[]
   notes           CaseNote[]
   outcome         Outcome?
+  evidence        EvidenceFile[]
 
   @@unique([institutionId, caseNumber])
   @@index([institutionId, status, slaDueAt])
@@ -514,5 +517,43 @@ model Sanction {
 
   @@index([outcomeId])
   @@map("sanctions")
+  @@schema("compliance")
+}
+
+enum ScanStatus {
+  pending
+  clean
+  flagged
+  skipped
+
+  @@map("scan_status")
+  @@schema("compliance")
+}
+
+/// Metadata only; the bytes live in object storage under a random key. The
+/// original filename is metadata and never a path.
+model EvidenceFile {
+  id               String     @id @default(uuid()) @db.Uuid
+  institutionId    String     @map("institution_id") @db.Uuid
+  caseId           String?    @map("case_id") @db.Uuid
+  reportId         String?    @map("report_id") @db.Uuid
+  uploadedBy       String?    @map("uploaded_by") @db.Uuid
+  storageKey       String     @unique @map("storage_key")
+  originalFilename String     @map("original_filename")
+  /// Sniffed from content. Never the value the client claimed.
+  mimeType         String     @map("mime_type")
+  byteSize         BigInt     @map("byte_size")
+  sha256           String     @db.Char(64)
+  scanStatus       ScanStatus @default(pending) @map("scan_status")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  deletedAt        DateTime?  @map("deleted_at")
+
+  case     Case?        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  report   Report?      @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  uploader UserAccount? @relation(fields: [uploadedBy], references: [id])
+
+  @@index([caseId, deletedAt])
+  @@index([reportId, deletedAt])
+  @@map("evidence_files")
   @@schema("compliance")
 }

@@ -80,6 +80,12 @@ describe("database invariants that Prisma cannot express", () => {
     expect({ unique, range }).toEqual({ unique: 1, range: 1 });
   });
 
+  it("keeps the evidence attachment CHECK", async () => {
+    const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_constraint WHERE conname = 'evidence_files_attached'`);
+    expect(n).toBe(1);
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua
