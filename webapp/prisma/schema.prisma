@@ -189,6 +189,7 @@ model UserAccount {
   sessions     Session[]
   partyIn      CaseParty[]
   authoredNotes CaseNote[]
+  decidedOutcomes Outcome[]
 
   @@unique([institutionId, email])
   @@map("user_accounts")
@@ -324,6 +325,7 @@ model Case {
   statusHistory   CaseStatusHistory[]
   parties         CaseParty[]
   notes           CaseNote[]
+  outcome         Outcome?
 
   @@unique([institutionId, caseNumber])
   @@index([institutionId, status, slaDueAt])
@@ -418,6 +420,7 @@ model CaseParty {
 
   case    Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
   account UserAccount? @relation(fields: [userAccountId], references: [id])
+  sanctions     Sanction[]
 
   @@index([caseId, deletedAt])
   @@map("case_parties")
@@ -450,5 +453,66 @@ model CaseNote {
 
   @@index([caseId, deletedAt, createdAt])
   @@map("case_notes")
+  @@schema("compliance")
+}
+
+enum Finding {
+  upheld
+  partially_upheld
+  not_upheld
+  inconclusive
+
+  @@map("finding")
+  @@schema("compliance")
+}
+
+enum SanctionType {
+  warning
+  written_reprimand
+  probation
+  suspension
+  community_service
+  restitution
+  referral
+  no_action
+
+  @@map("sanction_type")
+  @@schema("compliance")
+}
+
+/// One per case, enforced by the database rather than by the service that
+/// happens to write it.
+model Outcome {
+  id        String   @id @default(uuid()) @db.Uuid
+  caseId    String   @unique @map("case_id") @db.Uuid
+  finding   Finding
+  rationale String
+  decidedBy String   @map("decided_by") @db.Uuid
+  decidedAt DateTime @default(now()) @map("decided_at")
+
+  case      Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  decider   UserAccount @relation(fields: [decidedBy], references: [id])
+  sanctions Sanction[]
+
+  @@map("outcomes")
+  @@schema("compliance")
+}
+
+model Sanction {
+  id             String       @id @default(uuid()) @db.Uuid
+  outcomeId      String       @map("outcome_id") @db.Uuid
+  subjectPartyId String       @map("subject_party_id") @db.Uuid
+  sanctionType   SanctionType @map("sanction_type")
+  description    String
+  effectiveFrom  DateTime     @map("effective_from") @db.Date
+  effectiveTo    DateTime?    @map("effective_to") @db.Date
+  status         String       @default("active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  outcome      Outcome   @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+  subjectParty CaseParty @relation(fields: [subjectPartyId], references: [id])
+
+  @@index([outcomeId])
+  @@map("sanctions")
   @@schema("compliance")
 }

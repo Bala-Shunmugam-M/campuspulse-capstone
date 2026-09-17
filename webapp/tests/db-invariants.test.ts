@@ -72,6 +72,14 @@ describe("database invariants that Prisma cannot express", () => {
     expect(n).toBe(1);
   });
 
+  it("keeps one outcome per case and the sanction date range CHECK", async () => {
+    const unique = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'outcomes_case_id_key'`);
+    const range = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_constraint WHERE conname = 'sanctions_effective_range'`);
+    expect({ unique, range }).toEqual({ unique: 1, range: 1 });
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua
