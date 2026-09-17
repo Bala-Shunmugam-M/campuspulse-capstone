@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "verify": "tsx scripts/verify.ts"
+    "verify": "tsx scripts/verify.ts",
+    "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.1",
