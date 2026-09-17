@@ -101,9 +101,17 @@ export default async function CasesPage({
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10">
       <header className="flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Case queue</h1>
-        <Link className="text-sm text-slate-600 underline" href="/audit">
-          Audit log
-        </Link>
+        <nav className="flex gap-4 text-sm text-slate-600">
+          <Link className="underline" href="/policies">
+            Policies
+          </Link>
+          <Link className="underline" href="/directory">
+            Directory
+          </Link>
+          <Link className="underline" href="/audit">
+            Audit log
+          </Link>
+        </nav>
       </header>
 
       <form method="GET" className="flex flex-wrap items-end gap-3">
