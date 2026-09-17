@@ -130,10 +130,21 @@ describe("listCases assignee filter", () => {
     await aCase(); // left unassigned
     await assignCase(admin, mine, officerAccountId, meta());
 
-    const { rows } = await listCases(admin, { assignedTo: officerAccountId });
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((c) => c.assignedOfficerId === officerAccountId)).toBe(true);
-    expect(rows.map((c) => c.id)).toContain(mine);
+    // Walked rather than read from the first page: this officer accumulates
+    // cases across the suite, and the new case has the latest SLA date, so it
+    // sorts to the end of a queue that is now several pages long.
+    const all: typeof mine[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 50; guard++) {
+      const page = await listCases(admin, { assignedTo: officerAccountId, cursor, limit: 500 });
+      expect(page.rows.every((c) => c.assignedOfficerId === officerAccountId)).toBe(true);
+      all.push(...page.rows.map((c) => c.id));
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+
+    expect(all.length).toBeGreaterThan(0);
+    expect(all).toContain(mine);
   });
 
   it("returns only unassigned cases for \"unassigned\"", async () => {

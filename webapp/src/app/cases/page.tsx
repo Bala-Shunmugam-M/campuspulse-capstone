@@ -102,6 +102,9 @@ export default async function CasesPage({
       <header className="flex items-baseline justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Case queue</h1>
         <nav className="flex gap-4 text-sm text-slate-600">
+          <Link className="underline" href="/dashboard">
+            Dashboard
+          </Link>
           <Link className="underline" href="/policies">
             Policies
           </Link>
