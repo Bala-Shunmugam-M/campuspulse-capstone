@@ -12,3 +12,5 @@ export class AccountLockedError extends DomainError {}
 export class InvalidCredentialsError extends DomainError {}
 export class InvalidTransitionError extends DomainError {}
 export class RateLimitedError extends DomainError {}
+/** Publication is one-way. Re-publishing is a caller mistake, not a retry. */
+export class AlreadyPublishedError extends DomainError {}
