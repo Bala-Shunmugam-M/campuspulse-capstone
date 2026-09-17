@@ -7,7 +7,7 @@ import { attachEvidenceToCase, listEvidenceForCase, readEvidence } from "../src/
 import { MAX_UPLOAD_BYTES, inspectUpload } from "../src/lib/upload/inspect";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01, 0x02]);
 const PDF = Buffer.concat([Buffer.from("%PDF-1.7\n"), Buffer.from("body")]);

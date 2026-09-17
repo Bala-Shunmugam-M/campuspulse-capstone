@@ -4,7 +4,7 @@ import { prisma } from "../src/lib/db";
 import { resetRateLimits } from "../src/lib/rateLimit";
 import { lookupAnonymousReport, submitAnonymousReport } from "../src/server/reports";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const WRONG = "WRONGWRONGWRONGWRONGWRONGWRONGWRONGWRONGWRONGWRONGWR";
 let referenceCode: string;
 let accessSecret: string;

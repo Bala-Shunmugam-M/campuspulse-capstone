@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../src/lib/db";
+import { TRANSITIONS } from "../src/lib/cases/transitions";
 
 /**
  * Checks invariants against whatever the database currently holds, not against
@@ -175,6 +177,91 @@ async function main() {
     await scalar(prisma.$queryRaw`
       SELECT count(*) AS n FROM compliance.sessions
       WHERE revoked_at IS NOT NULL AND last_seen_at > revoked_at`),
+  );
+
+  // ---- phase 3 ----
+
+  // The state machine in SQL, built from the same array the application
+  // enforces. A second hand-written copy here could drift from it and quietly
+  // bless a transition the application would refuse.
+  const permitted = Prisma.join(
+    TRANSITIONS.map((t) => Prisma.sql`(${t.from}, ${t.to})`),
+  );
+
+  add(
+    "every recorded transition is one the machine permits",
+    "0 rows",
+    await scalar(
+      prisma.$queryRaw(Prisma.sql`
+        SELECT count(*) AS n FROM compliance.case_status_history h
+        WHERE h.from_status IS NOT NULL
+          AND (h.from_status::text, h.to_status::text) NOT IN (${permitted})`),
+    ),
+  );
+
+  add(
+    "resolved precedes closed wherever both exist",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.cases
+      WHERE resolved_at IS NOT NULL AND closed_at IS NOT NULL AND resolved_at > closed_at`),
+  );
+
+  // A published version cannot be modified because a trigger refuses it, so
+  // what is checkable after the fact is that the protection is still in force
+  // and that every published row still carries the stamp publication gave it.
+  // A version marked published with no publisher, or a publisher with no
+  // publication date, is evidence that something reached past the service.
+  add(
+    "the policy immutability trigger is present and enabled",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT (1 - count(*)) AS n FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE c.relname = 'policy_versions'
+        AND t.tgname = 'policy_versions_no_edit_after_publish'
+        AND NOT t.tgisinternal
+        AND t.tgenabled <> 'D'`),
+  );
+
+  add(
+    "every published policy version keeps its publication stamp",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.policy_versions
+      WHERE (published_at IS NULL) <> (published_by IS NULL)`),
+  );
+
+  add(
+    "no two published versions of a policy are live at once",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n
+      FROM compliance.policy_versions a
+      JOIN compliance.policy_versions b
+        ON b.policy_id = a.policy_id AND b.id <> a.id
+      WHERE a.published_at IS NOT NULL AND b.published_at IS NOT NULL
+        AND daterange(a.effective_from, a.effective_to, '[)')
+         && daterange(b.effective_from, b.effective_to, '[)')`),
+  );
+
+  add(
+    "every acknowledgement names a published version",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.policy_acknowledgements a
+      JOIN compliance.policy_versions v ON v.id = a.policy_version_id
+      WHERE v.published_at IS NULL`),
+  );
+
+  add(
+    "no version number repeats within a policy",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM (
+        SELECT policy_id, version_no FROM compliance.policy_versions
+        GROUP BY policy_id, version_no HAVING count(*) > 1
+      ) d`),
   );
 
   const width = Math.max(...checks.map((c) => c.name.length));

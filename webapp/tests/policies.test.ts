@@ -12,7 +12,7 @@ import {
 import { AlreadyPublishedError, ForbiddenError } from "../src/lib/errors";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const CONCURRENCY = 12;
 
 let admin: Actor;

@@ -7,7 +7,7 @@ import { addParty } from "../src/server/parties";
 import { addSanction, getOutcome, recordOutcome } from "../src/server/outcomes";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 let institutionId: string;
 let admin: Actor;

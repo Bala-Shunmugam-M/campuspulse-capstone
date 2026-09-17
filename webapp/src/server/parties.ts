@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
-import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 export type PartyInput = {
@@ -62,7 +61,7 @@ export async function addParty(
         userAccountId: input.userAccountId ?? null,
         externalName: input.externalName ?? null,
         isAnonymous: input.isAnonymous ?? false,
-        createdAt: now(),
+        createdAt: meta.at,
       },
     });
     await withAudit(
@@ -72,6 +71,7 @@ export async function addParty(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -116,7 +116,7 @@ export async function removeParty(
   const kase = await caseForParties(actor, party.caseId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.caseParty.update({ where: { id: partyId }, data: { deletedAt: now() } });
+    await tx.caseParty.update({ where: { id: partyId }, data: { deletedAt: meta.at } });
     await withAudit(
       tx,
       {
@@ -124,6 +124,7 @@ export async function removeParty(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },

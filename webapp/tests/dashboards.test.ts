@@ -9,7 +9,7 @@ import { isOverdue } from "../src/lib/cases/sla";
 import { ForbiddenError } from "../src/lib/errors";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 let institutionId: string;
 let officer: Actor;

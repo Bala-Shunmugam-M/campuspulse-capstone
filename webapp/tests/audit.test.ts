@@ -10,6 +10,7 @@ const ctx = (institutionId: string): AuditContext => ({
   requestId: randomUUID(),
   ipHash: null,
   userAgent: null,
+  occurredAt: new Date(),
 });
 
 async function anInstitution(): Promise<string> {

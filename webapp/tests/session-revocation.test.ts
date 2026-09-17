@@ -8,7 +8,7 @@ import {
   revokeSession,
 } from "../src/lib/auth/session";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 let accountId: string;
 let institutionId: string;
 

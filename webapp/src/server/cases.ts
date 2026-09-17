@@ -6,7 +6,6 @@ import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/err
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
 import { decodeCursor, pageSize, toPage, type Page } from "@/lib/pagination";
-import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -64,7 +63,7 @@ export async function triageReport(
   if (!report) throw new NotFoundError("That report does not exist.");
   requireSameInstitution(actor, report.institutionId);
 
-  const openedAt = now();
+  const openedAt = meta.at;
   const year = openedAt.getUTCFullYear();
   const slaDueAt = new Date(openedAt.getTime() + SLA_HOURS[input.severity] * 3_600_000);
 
@@ -110,6 +109,7 @@ export async function triageReport(
         actorLabel: actor.email,
         institutionId: report.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -259,7 +259,7 @@ export async function changeCaseStatus(
     );
   }
 
-  const at = now();
+  const at = meta.at;
 
   await prisma.$transaction(async (tx) => {
     await tx.case.update({
@@ -293,6 +293,7 @@ export async function changeCaseStatus(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -311,6 +312,7 @@ export async function changeCaseStatus(
       caseId: kase.id,
       subject: `${kase.caseNumber} is now ${to.replaceAll("_", " ")}`,
       body: reason ?? `The case moved from ${kase.status} to ${to}.`,
+      at: meta.at,
     });
   });
 }
@@ -343,7 +345,7 @@ export async function assignCase(
     }
   }
 
-  const at = now();
+  const at = meta.at;
 
   await prisma.$transaction(async (tx) => {
     await tx.case.update({
@@ -362,6 +364,7 @@ export async function assignCase(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -379,6 +382,7 @@ export async function assignCase(
         caseId: kase.id,
         subject: `${kase.caseNumber} has been assigned to you`,
         body: kase.title,
+        at: meta.at,
       });
     }
   });

@@ -23,7 +23,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(raw?.password ?? "");
         if (!email || !password) return null;
         try {
-          const meta = { requestId: randomUUID(), ipHash: null, userAgent: null };
+          const meta = { requestId: randomUUID(), ipHash: null, userAgent: null, at: new Date() };
           const account = await authenticate(email, password, meta);
           const sessionId = await issueSession(account.accountId, meta);
           return {
@@ -71,7 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const sid =
         "token" in message ? (message.token?.sid as string | undefined) : undefined;
       if (sid) {
-        await revokeSession(sid, { requestId: randomUUID(), ipHash: null, userAgent: null });
+        await revokeSession(sid, { requestId: randomUUID(), ipHash: null, userAgent: null, at: new Date() });
       }
     },
   },

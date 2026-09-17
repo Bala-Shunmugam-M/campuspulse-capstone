@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
-import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 const STAFF = ["officer", "investigator", "admin", "dpo"] as const;
@@ -81,7 +80,7 @@ export async function addNote(
         authorId: actor.accountId,
         body: text,
         visibility,
-        createdAt: now(),
+        createdAt: meta.at,
       },
     });
     await withAudit(
@@ -91,6 +90,7 @@ export async function addNote(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -148,6 +148,7 @@ export async function editNote(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -175,7 +176,7 @@ export async function removeNote(
   const kase = await caseForNotes(actor, note.caseId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.caseNote.update({ where: { id: noteId }, data: { deletedAt: now() } });
+    await tx.caseNote.update({ where: { id: noteId }, data: { deletedAt: meta.at } });
     await withAudit(
       tx,
       {
@@ -183,6 +184,7 @@ export async function removeNote(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },

@@ -5,7 +5,6 @@ import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
-import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 export type OutcomeInput = {
@@ -58,7 +57,7 @@ export async function recordOutcome(
   const rationale = input.rationale.trim();
   if (rationale.length < 1) throw new NotFoundError("An outcome needs a rationale.");
 
-  const at = now();
+  const at = meta.at;
 
   // A case has one outcome. A case that was appealed and re-decided revises it
   // rather than gaining a second, which is both what UNIQUE (case_id) requires
@@ -105,6 +104,7 @@ export async function recordOutcome(
       actorLabel: actor.email,
       institutionId: kase.institutionId,
       requestId: meta.requestId,
+      occurredAt: meta.at,
       ipHash: meta.ipHash,
       userAgent: meta.userAgent,
     };
@@ -129,6 +129,7 @@ export async function recordOutcome(
       caseId: kase.id,
       subject: `${kase.caseNumber} has been decided`,
       body: `Finding: ${input.finding.replaceAll("_", " ")}.`,
+      at: meta.at,
     });
 
     return outcome.id;
@@ -188,6 +189,7 @@ export async function addSanction(
         actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
+      occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },

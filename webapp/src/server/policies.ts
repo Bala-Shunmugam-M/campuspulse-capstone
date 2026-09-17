@@ -53,6 +53,7 @@ function auditContext(actor: Actor, meta: RequestMeta) {
     actorLabel: actor.email,
     institutionId: actor.institutionId,
     requestId: meta.requestId,
+    occurredAt: meta.at,
     ipHash: meta.ipHash,
     userAgent: meta.userAgent,
   };
@@ -70,7 +71,7 @@ async function insertNextVersion(
   tx: Prisma.TransactionClient,
   policyId: string,
   input: VersionInput,
-  publish: { publishedById: string } | null,
+  publish: { publishedById: string; at: Date } | null,
 ): Promise<{ id: string; versionNo: number }> {
   await tx.$executeRaw`SELECT id FROM compliance.policies WHERE id = ${policyId}::uuid FOR UPDATE`;
 
@@ -84,7 +85,7 @@ async function insertNextVersion(
       ${input.bodyMarkdown},
       ${input.summary},
       ${asDate(input.effectiveFrom)}::date,
-      ${publish ? now() : null},
+      ${publish ? publish.at : null},
       ${publish?.publishedById ?? null}::uuid
     FROM compliance.policy_versions
     WHERE policy_id = ${policyId}::uuid
@@ -187,7 +188,7 @@ export async function publishVersion(
     // the last chance to correct a date the draft only guessed at.
     await tx.$executeRaw`
       UPDATE compliance.policy_versions
-      SET published_at = ${now()},
+      SET published_at = ${meta.at},
           published_by = ${actor.accountId}::uuid,
           effective_from = ${asDate(effectiveFrom)}::date
       WHERE id = ${versionId}::uuid`;
@@ -229,6 +230,7 @@ export async function supersede(
   return prisma.$transaction(async (tx) => {
     const created = await insertNextVersion(tx, policy.id, input, {
       publishedById: actor.accountId,
+      at: meta.at,
     });
 
     // The live predecessor: published and not already closed. Closing it at the

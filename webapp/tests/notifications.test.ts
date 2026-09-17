@@ -8,7 +8,7 @@ import { listActivity, listNotifications, markRead, unreadCount } from "../src/s
 import { addNote } from "../src/server/notes";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 let institutionId: string;
 let admin: Actor;

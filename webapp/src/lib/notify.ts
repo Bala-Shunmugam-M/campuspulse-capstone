@@ -1,5 +1,4 @@
 import type { Prisma } from "@prisma/client";
-import { now } from "@/lib/clock";
 
 /**
  * Notification primitives. They live beside withAudit rather than in
@@ -17,7 +16,7 @@ import { now } from "@/lib/clock";
 export async function notify(
   tx: Prisma.TransactionClient,
   recipientIds: string[],
-  payload: { caseId: string | null; subject: string; body: string },
+  payload: { caseId: string | null; subject: string; body: string; at: Date },
 ): Promise<void> {
   const unique = [...new Set(recipientIds)].filter(Boolean);
   if (unique.length === 0) return;
@@ -28,7 +27,8 @@ export async function notify(
       caseId: payload.caseId,
       subject: payload.subject,
       body: payload.body,
-      createdAt: now(),
+      // Dated by the request that caused it, like the audit row beside it.
+      createdAt: payload.at,
     })),
   });
 }

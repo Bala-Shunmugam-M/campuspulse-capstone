@@ -5,7 +5,7 @@ import { submitAnonymousReport } from "../src/server/reports";
 import { getCase, listCases, triageReport } from "../src/server/cases";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 let institutionId: string;
 let officer: Actor;
 let reporter: Actor;

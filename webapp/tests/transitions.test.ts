@@ -8,7 +8,7 @@ import { recordOutcome } from "../src/server/outcomes";
 import { TRANSITIONS, canTransition, findTransition } from "../src/lib/cases/transitions";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 const ALL_STATUSES: CaseStatus[] = [
   "submitted", "triaged", "under_investigation", "pending_decision",

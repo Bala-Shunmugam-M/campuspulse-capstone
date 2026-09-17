@@ -6,7 +6,7 @@ import { listCases, triageReport } from "../src/server/cases";
 import { decodeCursor, encodeCursor, pageSize } from "../src/lib/pagination";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const TOTAL = 24;
 const PAGE = 5;
 

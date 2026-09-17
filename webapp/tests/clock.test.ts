@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../src/lib/db";
 import {
   SIMULATED_NOW_HEADER,
-  adoptSimulatedTime,
   now,
+  requestNow,
   simulationEnabled,
   withSimulatedTime,
 } from "../src/lib/clock";
@@ -66,8 +66,7 @@ describe("the clock seam is shut by default", () => {
 
   it("ignores the header without the flag", () => {
     setEnv(undefined, "test");
-    adoptSimulatedTime(headersWith(SIMULATED.toISOString()));
-    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+    expect(Math.abs(requestNow(headersWith(SIMULATED.toISOString())).getTime() - Date.now())).toBeLessThan(5_000);
   });
 
   it("ignores the header in production even with the flag", () => {
@@ -77,8 +76,7 @@ describe("the clock seam is shut by default", () => {
     setEnv("1", "production");
     expect(simulationEnabled()).toBe(false);
 
-    adoptSimulatedTime(headersWith(SIMULATED.toISOString()));
-    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+    expect(Math.abs(requestNow(headersWith(SIMULATED.toISOString())).getTime() - Date.now())).toBeLessThan(5_000);
 
     // withSimulatedTime is refused on the same terms, so a script cannot reach
     // around the header.
@@ -88,8 +86,7 @@ describe("the clock seam is shut by default", () => {
 
   it("ignores a malformed header rather than raising", () => {
     setEnv("1", "test");
-    adoptSimulatedTime(headersWith("not a date at all"));
-    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+    expect(Math.abs(requestNow(headersWith("not a date at all")).getTime() - Date.now())).toBeLessThan(5_000);
   });
 
   it("reads the real clock with the flag set but no header", () => {
@@ -173,18 +170,50 @@ describe("with both gates open", () => {
     expect(event.occurredAt.toISOString()).toBe(SIMULATED.toISOString());
   });
 
-  it("adopts the instant from a header on an ordinary request", async () => {
+  it("leaves no simulated instant behind once the scope closes", async () => {
     setEnv("1", "test");
 
-    const at = new Date("2026-05-20T13:45:00.000Z");
-    const seen = await withSimulatedTime(new Date("2000-01-01T00:00:00.000Z"), async () => {
-      // enterWith replaces the surrounding context, which is what a real
-      // request does when it arrives carrying a header.
-      adoptSimulatedTime(headersWith(at.toISOString()));
-      return now().toISOString();
+    // The first version of this seam used AsyncLocalStorage.enterWith, which
+    // mutates the current context instead of opening a new one. On a
+    // long-lived server the instant outlived the request that set it and a
+    // later request read an earlier one's clock -- the simulator produced a
+    // case closed nine days before it was investigated. Nothing may survive
+    // the scope that set it.
+    await withSimulatedTime(SIMULATED, async () => {
+      expect(now().toISOString()).toBe(SIMULATED.toISOString());
     });
 
-    expect(seen).toBe(at.toISOString());
+    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+
+    // And a second, different scope is unaffected by the first.
+    const other = new Date("2026-07-04T00:00:00.000Z");
+    const seen = await withSimulatedTime(other, async () => now().toISOString());
+    expect(seen).toBe(other.toISOString());
+    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+  });
+
+  it("reads the instant a request carries, and hands it back rather than stashing it", () => {
+    setEnv("1", "test");
+
+    // requestNow returns the instant instead of putting it in ambient storage.
+    // The caller puts it on RequestMeta, so every stamp in the request can be
+    // traced to this one decision and no request can inherit another's clock.
+    expect(requestNow(headersWith(SIMULATED.toISOString())).toISOString()).toBe(
+      SIMULATED.toISOString(),
+    );
+    expect(newRequestMeta(headersWith(SIMULATED.toISOString())).at.toISOString()).toBe(
+      SIMULATED.toISOString(),
+    );
+
+    // Reading it changed nothing about what anyone else sees.
+    expect(Math.abs(now().getTime() - Date.now())).toBeLessThan(5_000);
+  });
+
+  it("falls back to the real clock when a request carries no header", () => {
+    setEnv("1", "test");
+    const bare = new Headers();
+    expect(Math.abs(requestNow(bare).getTime() - Date.now())).toBeLessThan(5_000);
+    expect(Math.abs(newRequestMeta(bare).at.getTime() - Date.now())).toBeLessThan(5_000);
   });
 
   it("leaves the audit row dated with the event, not with the transaction", async () => {

@@ -11,7 +11,7 @@ import type { Actor } from "../src/lib/auth/rbac";
  * which is what actually identifies the actor and is never a display concern.
  */
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let institutionId: string;

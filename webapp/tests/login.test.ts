@@ -4,7 +4,7 @@ import { prisma } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth/password";
 import { authenticate } from "../src/server/accounts";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const PASSWORD = "correct horse battery staple";
 let email: string;
 

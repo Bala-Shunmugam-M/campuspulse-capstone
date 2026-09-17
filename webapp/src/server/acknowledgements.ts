@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
-import { now } from "@/lib/clock";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import type { RequestMeta } from "@/server/accounts";
@@ -47,7 +46,7 @@ export async function acknowledge(
     const inserted = await tx.$executeRaw`
       INSERT INTO compliance.policy_acknowledgements
         (id, policy_version_id, user_account_id, acknowledged_at)
-      VALUES (gen_random_uuid(), ${versionId}::uuid, ${actor.accountId}::uuid, ${now()})
+      VALUES (gen_random_uuid(), ${versionId}::uuid, ${actor.accountId}::uuid, ${meta.at})
       ON CONFLICT (policy_version_id, user_account_id) DO NOTHING`;
 
     if (inserted === 0) return;
@@ -59,6 +58,7 @@ export async function acknowledge(
         actorLabel: actor.email,
         institutionId: version.policy.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },

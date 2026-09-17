@@ -4,7 +4,6 @@ import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { inspectUpload } from "@/lib/upload/inspect";
 import { storage } from "@/lib/storage";
-import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 export type EvidenceView = {
@@ -63,7 +62,7 @@ export async function attachEvidenceToCase(
           // in later is a change to this line rather than an audit of every
           // download path.
           scanStatus: "skipped",
-          createdAt: now(),
+          createdAt: meta.at,
         },
       });
       await withAudit(
@@ -73,6 +72,7 @@ export async function attachEvidenceToCase(
           actorLabel: actor.email,
           institutionId: kase.institutionId,
           requestId: meta.requestId,
+          occurredAt: meta.at,
           ipHash: meta.ipHash,
           userAgent: meta.userAgent,
         },

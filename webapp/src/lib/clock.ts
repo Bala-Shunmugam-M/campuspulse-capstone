@@ -27,11 +27,20 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export const SIMULATED_NOW_HEADER = "x-simulated-now";
 
 /**
- * The simulated instant for the current request, if one was adopted. Request
- * scoped: two concurrent simulated agents at different points in time must not
- * see each other's clock.
+ * A callback-scoped instant, for tests and for scripts that call the services
+ * directly. Always entered with run(), never with enterWith().
+ *
+ * A request does NOT use this. It carries its instant explicitly on RequestMeta
+ * instead, and there is a scar behind that choice: the first version of this
+ * seam kept the request's clock in ambient storage entered with
+ * AsyncLocalStorage.enterWith, which mutates the *current* async context rather
+ * than opening a new one. On a long-lived server the value outlived the request
+ * that set it, and a later request read an earlier request's clock. The
+ * simulator duly produced a case closed nine days before it was investigated,
+ * and its own audit trail said so. Ambient state that leaks between requests is
+ * not worth the convenience of a zero-argument now().
  */
-const simulated = new AsyncLocalStorage<Date>();
+const scoped = new AsyncLocalStorage<Date>();
 
 let warned = false;
 
@@ -54,35 +63,35 @@ export function simulationEnabled(): boolean {
   return true;
 }
 
-/** The current moment: the simulated one when there is one, otherwise the real one. */
+/** The current moment: the scoped one when a script or test set one, otherwise the real one. */
 export function now(): Date {
   if (!simulationEnabled()) return new Date();
-  const at = simulated.getStore();
+  const at = scoped.getStore();
   return at ? new Date(at.getTime()) : new Date();
 }
 
 /**
- * Adopt the instant carried by this request's X-Simulated-Now header, for the
- * remainder of the current execution context.
+ * The instant this request says it is happening at: the X-Simulated-Now header
+ * when both gates are open, and the real clock otherwise.
  *
- * A missing or malformed value is ignored rather than raising: the header is an
- * instruction from a trusted local script, and a typo in it should produce
- * ordinary real-time behaviour rather than a broken request.
+ * Returned rather than stashed, so the caller carries it explicitly on
+ * RequestMeta and every stamp in the request can be traced back to this one
+ * decision. A missing or malformed value falls back to the real clock rather
+ * than raising: the header comes from a trusted local script, and a typo in it
+ * should produce ordinary behaviour rather than a broken request.
  */
-export function adoptSimulatedTime(headers: Headers): void {
-  if (!simulationEnabled()) return;
+export function requestNow(headers: Headers): Date {
+  if (!simulationEnabled()) return new Date();
 
   const raw = headers.get(SIMULATED_NOW_HEADER);
-  if (!raw) return;
+  if (!raw) return now();
 
   const at = new Date(raw);
-  if (Number.isNaN(at.getTime())) return;
-
-  simulated.enterWith(at);
+  return Number.isNaN(at.getTime()) ? now() : at;
 }
 
 /** Run `fn` at a given instant. For tests and for scripts that do not go over HTTP. */
 export function withSimulatedTime<T>(at: Date, fn: () => T): T {
   if (!simulationEnabled()) return fn();
-  return simulated.run(at, fn);
+  return scoped.run(at, fn);
 }

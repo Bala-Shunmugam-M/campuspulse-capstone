@@ -16,7 +16,7 @@ import {
 import { ForbiddenError } from "../src/lib/errors";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 
 let admin: Actor;
 let reporter: Actor;

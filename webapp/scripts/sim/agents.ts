@@ -71,8 +71,21 @@ export type Task = { at: Date; label: string; run: () => Promise<void> };
  */
 export class Scheduler {
   private tasks: Task[] = [];
+  /** The instant of the task being run, so nothing can be scheduled behind it. */
+  private clock = new Date(0);
 
   schedule(at: Date, label: string, run: () => Promise<void>): void {
+    // Simulated time only moves forward. A task scheduled before the one
+    // currently running would be inserted ahead of the queue and execute in the
+    // past, writing history out of order -- which is how a case came to be
+    // closed before it was investigated.
+    if (at.getTime() < this.clock.getTime()) {
+      throw new SimulationError(
+        `"${label}" was scheduled for ${at.toISOString()}, behind the current ` +
+          `simulated instant ${this.clock.toISOString()}`,
+      );
+    }
+
     const task = { at, label, run };
     let low = 0;
     let high = this.tasks.length;
@@ -92,6 +105,7 @@ export class Scheduler {
     let done = 0;
     while (this.tasks.length > 0) {
       const task = this.tasks.shift()!;
+      this.clock = task.at;
       await task.run();
       done += 1;
       onStep(done, task);

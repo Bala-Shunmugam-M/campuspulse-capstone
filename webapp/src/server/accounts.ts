@@ -4,12 +4,18 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AccountLockedError, InvalidCredentialsError } from "@/lib/errors";
-import { adoptSimulatedTime, now } from "@/lib/clock";
+import { requestNow } from "@/lib/clock";
 
 export type RequestMeta = {
   requestId: string;
   ipHash: string | null;
   userAgent: string | null;
+  /**
+   * When this request is happening. Carried explicitly rather than read from
+   * ambient storage, so that a stamp can always be traced to the request that
+   * made it and one request can never inherit another's clock.
+   */
+  at: Date;
 };
 
 export type AuthenticatedAccount = {
@@ -50,7 +56,7 @@ export async function authenticate(
     throw new InvalidCredentialsError("Invalid email or password.");
   }
 
-  if (account.lockedUntil && account.lockedUntil > now()) {
+  if (account.lockedUntil && account.lockedUntil > meta.at) {
     throw new AccountLockedError(
       `This account is locked until ${account.lockedUntil.toISOString()}.`,
     );
@@ -63,6 +69,7 @@ export async function authenticate(
     requestId: meta.requestId,
     ipHash: meta.ipHash,
     userAgent: meta.userAgent,
+    occurredAt: meta.at,
   };
 
   if (!(await verifyPassword(account.passwordHash, plain))) {
@@ -74,7 +81,7 @@ export async function authenticate(
           failedLoginCount: failures,
           lockedUntil:
             failures >= MAX_FAILURES
-              ? new Date(now().getTime() + LOCK_MINUTES * 60_000)
+              ? new Date(meta.at.getTime() + LOCK_MINUTES * 60_000)
               : account.lockedUntil,
         },
       });
@@ -91,7 +98,7 @@ export async function authenticate(
   await prisma.$transaction(async (tx) => {
     await tx.userAccount.update({
       where: { id: account.id },
-      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: now() },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: meta.at },
     });
     await withAudit(tx, ctx, {
       action: "auth.login_succeeded",
@@ -109,14 +116,13 @@ export async function authenticate(
 }
 
 export function newRequestMeta(headers: Headers): RequestMeta {
-  // Every server action starts here, so this is where a simulated request hands
-  // the rest of its work a clock. Outside simulation mode the call is a no-op
-  // and the header is never read.
-  adoptSimulatedTime(headers);
-
   return {
     requestId: randomUUID(),
     ipHash: null,
     userAgent: headers.get("user-agent"),
+    // Every server action starts here, so this is the one place a request
+    // decides when it is happening. Outside simulation mode it is the real
+    // clock and the header is never read.
+    at: requestNow(headers),
   };
 }

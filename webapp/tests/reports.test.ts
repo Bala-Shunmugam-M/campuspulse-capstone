@@ -4,7 +4,7 @@ import { prisma } from "../src/lib/db";
 import { submitAnonymousReport, submitReport } from "../src/server/reports";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const input = {
   title: "Exam paper shared in a group chat",
   description: "A photograph of the question paper circulated the evening before the exam.",

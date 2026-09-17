@@ -10,7 +10,6 @@ import {
 } from "@/lib/reference/codes";
 import { assertRateLimit } from "@/lib/rateLimit";
 import { NotFoundError } from "@/lib/errors";
-import { now } from "@/lib/clock";
 import { reportInputSchema, type ReportInput } from "@/lib/validation/report";
 import type { RequestMeta } from "@/server/accounts";
 
@@ -35,7 +34,7 @@ export async function submitReport(
         channel: "web",
         // Stamped rather than defaulted: submitted_at is where the arrival
         // model lives, and a column default is transaction time.
-        submittedAt: now(),
+        submittedAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
         ...parsed,
@@ -48,6 +47,7 @@ export async function submitReport(
         actorLabel: actor.email,
         institutionId: actor.institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -86,7 +86,7 @@ export async function submitAnonymousReport(
         isAnonymous: true,
         reporterUserId: null,
         channel: "web",
-        submittedAt: now(),
+        submittedAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
         ...parsed,
@@ -99,6 +99,7 @@ export async function submitAnonymousReport(
         actorLabel: "anonymous",
         institutionId,
         requestId: meta.requestId,
+        occurredAt: meta.at,
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
       },
@@ -153,6 +154,7 @@ export async function lookupAnonymousReport(
           actorLabel: "anonymous",
           institutionId: report.institutionId,
           requestId: meta.requestId,
+        occurredAt: meta.at,
           ipHash: meta.ipHash,
           userAgent: meta.userAgent,
         },

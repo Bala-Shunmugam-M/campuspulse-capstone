@@ -5,7 +5,7 @@ import { submitAnonymousReport } from "../src/server/reports";
 import { triageReport } from "../src/server/cases";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest" });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
 const CONCURRENCY = 20;
 
 let institutionId: string;
