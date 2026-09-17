@@ -128,7 +128,7 @@ export async function lookupAnonymousReport(
   meta: RequestMeta,
 ): Promise<ReportStatusView> {
   const code = referenceCode.trim().toUpperCase();
-  assertRateLimit(`lookup:${code}`, 5, 15 * 60_000);
+  await assertRateLimit(`lookup:${code}`, 5, 15 * 60_000);
 
   const report = await prisma.report.findFirst({
     where: { referenceCode: code, isAnonymous: true, deletedAt: null },

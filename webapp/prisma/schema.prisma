@@ -578,3 +578,16 @@ model Notification {
   @@map("notifications")
   @@schema("compliance")
 }
+
+/// Fixed-window rate limit buckets. In Postgres rather than in memory so the
+/// limit holds across processes; an in-memory limiter behind two instances
+/// grants the full allowance to each.
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @map("window_start")
+
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
+  @@schema("compliance")
+}

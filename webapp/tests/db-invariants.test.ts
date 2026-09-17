@@ -95,6 +95,14 @@ describe("database invariants that Prisma cannot express", () => {
     expect({ idx, view }).toEqual({ idx: 1, view: 1 });
   });
 
+  it("keeps the rate-limit bump function", async () => {
+    const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_proc p
+      JOIN pg_namespace ns ON ns.oid = p.pronamespace
+      WHERE ns.nspname = 'compliance' AND p.proname = 'bump_rate_limit'`);
+    expect(n).toBe(1);
+  });
+
   it("holds no cross-tenant accounts", async () => {
     const n = await count(prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM compliance.user_accounts ua

@@ -1,27 +1,43 @@
+import { prisma } from "@/lib/db";
 import { RateLimitedError } from "@/lib/errors";
 
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
-
 /**
- * In-memory fixed-window limiter. Sufficient for a single-process deployment;
- * several instances need a shared store, which the README states rather than
- * pretending away.
+ * Fixed-window limiter backed by Postgres rather than process memory. The
+ * in-memory version this replaces was correct for one instance and wrong for
+ * two: behind a load balancer each process granted the full allowance, so a
+ * five-per-window limit became five per instance.
+ *
+ * Postgres rather than Redis because the database is already here and already
+ * transactional; adding an infrastructure dependency to fix a single-process
+ * assumption trades one operational problem for a larger one.
  */
-export function assertRateLimit(key: string, limit: number, windowMs: number): void {
-  const now = Date.now();
-  const bucket = buckets.get(key);
+export async function assertRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<void> {
+  const [row] = await prisma.$queryRaw<{ bump_rate_limit: number }[]>`
+    SELECT compliance.bump_rate_limit(${key}, ${windowMs}::bigint)`;
 
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return;
-  }
-  if (bucket.count >= limit) {
+  if (row.bump_rate_limit > limit) {
     throw new RateLimitedError("Too many attempts. Try again shortly.");
   }
-  bucket.count += 1;
 }
 
-export function resetRateLimits(): void {
-  buckets.clear();
+/** Test seam. Clears every bucket. */
+export async function resetRateLimits(): Promise<void> {
+  await prisma.rateLimitBucket.deleteMany({});
+}
+
+/**
+ * Drops windows that closed over an hour ago. Called opportunistically rather
+ * than on a schedule; the table is small and this keeps it that way without
+ * introducing a job runner.
+ */
+export async function sweepRateLimits(): Promise<number> {
+  const cutoff = new Date(Date.now() - 3_600_000);
+  const { count } = await prisma.rateLimitBucket.deleteMany({
+    where: { windowStart: { lt: cutoff } },
+  });
+  return count;
 }
