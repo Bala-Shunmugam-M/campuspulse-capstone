@@ -15,7 +15,12 @@ async function anActorWith(role: "officer" | "reporter"): Promise<Actor> {
     where: { institutionId, roles: { some: { role, revokedAt: null } } },
     include: { roles: { where: { revokedAt: null } } },
   });
-  return { accountId: account.id, institutionId, roles: account.roles.map((r) => r.role) };
+  return {
+    accountId: account.id,
+    institutionId,
+    email: account.email,
+    roles: account.roles.map((r) => r.role),
+  };
 }
 
 async function aReport(): Promise<string> {

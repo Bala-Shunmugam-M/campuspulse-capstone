@@ -49,7 +49,7 @@ function asDate(value: Date): string {
 function auditContext(actor: Actor, meta: RequestMeta) {
   return {
     actorAccountId: actor.accountId,
-    actorLabel: actor.accountId,
+    actorLabel: actor.email,
     institutionId: actor.institutionId,
     requestId: meta.requestId,
     ipHash: meta.ipHash,

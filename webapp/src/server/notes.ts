@@ -81,7 +81,7 @@ export async function addNote(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
@@ -138,7 +138,7 @@ export async function editNote(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
@@ -173,7 +173,7 @@ export async function removeNote(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,

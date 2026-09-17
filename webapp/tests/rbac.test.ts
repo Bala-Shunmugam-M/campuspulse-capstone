@@ -4,6 +4,7 @@ import { requireRole, requireSameInstitution, type Actor } from "../src/lib/auth
 const actor = (roles: Actor["roles"]): Actor => ({
   accountId: "a",
   institutionId: "inst-1",
+  email: "a@example.edu",
   roles,
 });
 

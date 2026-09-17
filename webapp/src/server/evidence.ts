@@ -68,7 +68,7 @@ export async function attachEvidenceToCase(
         tx,
         {
           actorAccountId: actor.accountId,
-          actorLabel: actor.accountId,
+          actorLabel: actor.email,
           institutionId: kase.institutionId,
           requestId: meta.requestId,
           ipHash: meta.ipHash,

@@ -101,7 +101,7 @@ export async function recordOutcome(
 
     const ctx = {
       actorAccountId: actor.accountId,
-      actorLabel: actor.accountId,
+      actorLabel: actor.email,
       institutionId: kase.institutionId,
       requestId: meta.requestId,
       ipHash: meta.ipHash,
@@ -184,7 +184,7 @@ export async function addSanction(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,

@@ -13,6 +13,9 @@ export async function currentActor(): Promise<Actor | null> {
   return {
     accountId: session.user.accountId,
     institutionId: session.user.institutionId,
+    // The session callback reads this from the account on every request, so it
+    // cannot go stale the way a value baked into the token would.
+    email: session.user.email ?? session.user.accountId,
     roles: (session.user.roles ?? []) as ComplianceRole[],
   };
 }

@@ -43,7 +43,12 @@ beforeAll(async () => {
   const adminAccount = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "admin", revokedAt: null } } },
   });
-  admin = { accountId: adminAccount.id, institutionId, roles: ["admin"] };
+  admin = {
+    accountId: adminAccount.id,
+    institutionId,
+    email: adminAccount.email,
+    roles: ["admin"],
+  };
 
   const officer = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "officer", revokedAt: null } } },

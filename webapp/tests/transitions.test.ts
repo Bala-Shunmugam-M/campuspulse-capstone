@@ -23,7 +23,7 @@ async function actorWith(role: "admin" | "investigator" | "officer"): Promise<Ac
   const account = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role, revokedAt: null } } },
   });
-  return { accountId: account.id, institutionId, roles: [role] };
+  return { accountId: account.id, institutionId, email: account.email, roles: [role] };
 }
 
 /** A fresh case, always at `submitted`. */

@@ -44,12 +44,17 @@ beforeAll(async () => {
   const a = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "admin", revokedAt: null } } },
   });
-  admin = { accountId: a.id, institutionId, roles: ["admin"] };
+  admin = { accountId: a.id, institutionId, email: a.email, roles: ["admin"] };
 
   const other = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId: { not: institutionId } },
   });
-  foreignActor = { accountId: other.id, institutionId: other.institutionId, roles: ["admin"] };
+  foreignActor = {
+    accountId: other.id,
+    institutionId: other.institutionId,
+    email: other.email,
+    roles: ["admin"],
+  };
 });
 
 describe("inspectUpload", () => {

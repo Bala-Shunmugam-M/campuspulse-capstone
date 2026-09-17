@@ -8,7 +8,7 @@ let base: Actor;
 beforeAll(async () => {
   const inst = await prisma.institution.findFirstOrThrow({ where: { code: "NGU" } });
   const account = await prisma.userAccount.findFirstOrThrow({ where: { institutionId: inst.id } });
-  base = { accountId: account.id, institutionId: inst.id, roles: [] };
+  base = { accountId: account.id, institutionId: inst.id, email: account.email, roles: [] };
 });
 
 describe("listAuditEvents", () => {

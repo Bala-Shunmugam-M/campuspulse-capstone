@@ -4,6 +4,13 @@ import { ForbiddenError } from "@/lib/errors";
 export type Actor = {
   accountId: string;
   institutionId: string;
+  /**
+   * The account's email, carried so every audit row can name its actor in a way
+   * a person can read. Required rather than optional: an Actor without one would
+   * silently fall back to writing a uuid, which is the defect this field exists
+   * to fix. Read once at session load rather than once per audit row.
+   */
+  email: string;
   roles: ComplianceRole[];
 };
 

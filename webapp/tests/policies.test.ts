@@ -31,6 +31,7 @@ async function actorWithRole(institutionCode: string, role: string): Promise<Act
   return {
     accountId: account.id,
     institutionId: inst.id,
+    email: account.email,
     roles: account.roles.map((r) => r.role),
   };
 }

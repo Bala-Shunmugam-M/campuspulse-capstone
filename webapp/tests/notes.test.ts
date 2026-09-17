@@ -20,7 +20,7 @@ async function reporterAt(index: number): Promise<Actor> {
   const account = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, email: { startsWith: `reporter${index}@` } },
   });
-  return { accountId: account.id, institutionId, roles: ["reporter"] };
+  return { accountId: account.id, institutionId, email: account.email, roles: ["reporter"] };
 }
 
 /** A case with all three note visibilities on it. */
@@ -56,12 +56,12 @@ beforeAll(async () => {
   const a = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "admin", revokedAt: null } } },
   });
-  admin = { accountId: a.id, institutionId, roles: ["admin"] };
+  admin = { accountId: a.id, institutionId, email: a.email, roles: ["admin"] };
 
   const o = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "officer", revokedAt: null } } },
   });
-  officer = { accountId: o.id, institutionId, roles: ["officer"] };
+  officer = { accountId: o.id, institutionId, email: o.email, roles: ["officer"] };
 
   outsider = await reporterAt(2);
   partyActor = await reporterAt(3);

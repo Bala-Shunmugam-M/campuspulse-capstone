@@ -54,7 +54,7 @@ export async function acknowledge(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: version.policy.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,

@@ -35,7 +35,12 @@ beforeAll(async () => {
     where: { institutionId, roles: { some: { role: "officer", revokedAt: null } } },
     include: { roles: { where: { revokedAt: null } } },
   });
-  officer = { accountId: account.id, institutionId, roles: account.roles.map((r) => r.role) };
+  officer = {
+    accountId: account.id,
+    institutionId,
+    email: account.email,
+    roles: account.roles.map((r) => r.role),
+  };
 });
 
 describe("case number allocation under concurrency", () => {

@@ -24,7 +24,12 @@ beforeAll(async () => {
     where: { institutionId, email: { startsWith: "reporter1@" } },
     include: { roles: { where: { revokedAt: null } } },
   });
-  actor = { accountId: account.id, institutionId, roles: account.roles.map((r) => r.role) };
+  actor = {
+    accountId: account.id,
+    institutionId,
+    email: account.email,
+    roles: account.roles.map((r) => r.role),
+  };
 });
 
 describe("submitReport", () => {

@@ -43,17 +43,17 @@ beforeAll(async () => {
   const a = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "admin", revokedAt: null } } },
   });
-  admin = { accountId: a.id, institutionId, roles: ["admin"] };
+  admin = { accountId: a.id, institutionId, email: a.email, roles: ["admin"] };
 
   const o = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, roles: { some: { role: "officer", revokedAt: null } } },
   });
-  officer = { accountId: o.id, institutionId, roles: ["officer"] };
+  officer = { accountId: o.id, institutionId, email: o.email, roles: ["officer"] };
 
   const p = await prisma.userAccount.findFirstOrThrow({
     where: { institutionId, email: { startsWith: "reporter7@" } },
   });
-  partyActor = { accountId: p.id, institutionId, roles: ["reporter"] };
+  partyActor = { accountId: p.id, institutionId, email: p.email, roles: ["reporter"] };
 });
 
 describe("assignment notifies the assignee", () => {

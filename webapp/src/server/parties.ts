@@ -67,7 +67,7 @@ export async function addParty(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
@@ -119,7 +119,7 @@ export async function removeParty(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,

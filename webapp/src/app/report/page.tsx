@@ -67,6 +67,7 @@ export default async function ReportPage({
         {
           accountId: active.user.accountId,
           institutionId: active.user.institutionId,
+          email: active.user.email ?? active.user.accountId,
           roles: active.user.roles as never,
         },
         parsed.data,

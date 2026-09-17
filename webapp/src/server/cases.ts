@@ -100,7 +100,7 @@ export async function triageReport(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: report.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
@@ -282,7 +282,7 @@ export async function changeCaseStatus(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
@@ -351,7 +351,7 @@ export async function assignCase(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: kase.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,

@@ -41,7 +41,7 @@ export async function submitReport(
       tx,
       {
         actorAccountId: actor.accountId,
-        actorLabel: actor.accountId,
+        actorLabel: actor.email,
         institutionId: actor.institutionId,
         requestId: meta.requestId,
         ipHash: meta.ipHash,
