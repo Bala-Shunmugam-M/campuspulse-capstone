@@ -160,37 +160,81 @@ caught it. `20260916190000_restore_tenant_fk` puts it back.
 ## 5. Running the checks
 
 ```bash
-npm test         # 59 tests across 12 files
-npm run verify   # 8 invariant checks against the live database
+npm test         # 147 tests across 22 files
+npm run verify   # 17 invariant checks against the live database
 npx tsc --noEmit # type check
 npm run lint     # eslint
 ```
 
 `verify` checks invariants against whatever the database currently holds, not
 against what a test just created — which is how the Python half of this project
-found its real bugs. It has been observed to fail: dropping the anonymity
-constraint and corrupting one row makes check 1 report `FAIL` and the process
-exit `1`. A verification script never seen to fail is not evidence of anything.
+found its real bugs. It has earned that description twice. In Phase 1, dropping
+the anonymity constraint and corrupting one row turned a check red and the exit
+code to `1`. In Phase 2 it found a live defect on its first run: fourteen
+resolved cases with no recorded outcome, because `changeCaseStatus` had allowed
+`resolved` as a bare status change. A verification script never seen to fail is
+not evidence of anything.
 
-## 6. Known limitations
+## 6. Case workflow
 
-These are deliberate Phase 1 boundaries, written down so each is a known
-limitation rather than an undiscovered defect.
+Every legal transition and the role it needs lives in
+`src/lib/cases/transitions.ts`. Anything absent from that array is refused, and
+the test walks the whole cross-product of statuses to prove it.
 
-- **Sessions are JWT, not database-backed.** The spec calls for database
-  sessions so access can be revoked immediately. Auth.js v5 needs an adapter for
-  that and the adapter's tables do not fit the `compliance` schema cleanly.
-  Phase 1 ships an 8-hour cap; a signed-out or role-revoked user keeps their
-  token until it expires. **Phase 2 replaces this.**
-- **The rate limiter is in-memory and therefore per-process.** Correct for a
-  single instance, wrong for several: behind a load balancer each instance
-  permits the full allowance, so five attempts per code per fifteen minutes
-  becomes five per instance. A shared store is needed before scaling out.
-- **Case numbers are allocated by counting existing rows**, which races under
-  concurrent triage — two officers triaging simultaneously can collide on
-  `CASE-YYYY-NNNN`. The unique index catches it and the second caller errors.
-  **Phase 2 replaces this with a per institution-and-year sequence.**
-- **No evidence upload or malware scanning.** Reports are text only. **Phase 2.**
+```
+submitted ─▶ triaged ─▶ under_investigation ─▶ pending_decision ─▶ resolved ─▶ closed
+                │              │                      │                          │
+                └──▶ dismissed ◀──────────────────────┘        closed ─▶ appealed ─▶ under_investigation
+```
+
+**`resolved` is not reachable through `changeCaseStatus`.** A case is resolved
+by recording its outcome, which writes the finding and the status in one
+transaction. A resolved case with no recorded decision is precisely the gap the
+outcomes table exists to close, so it is made unreachable rather than merely
+discouraged.
+
+A case has exactly one outcome, enforced by `UNIQUE (case_id)`. An appeal that
+is re-decided **revises** that outcome and audits as `case.outcome_revised`
+carrying both findings; it does not add a second.
+
+## 7. Evidence
+
+Uploads are typed from their bytes. The client's declared content type is never
+consulted — it is the one field an attacker fully controls.
+
+The permitted set is an **allowlist** of signatures (PNG, JPEG, GIF, PDF, plain
+text), not a blocklist of dangerous formats. A blocklist must enumerate every
+hostile format and is wrong the moment a new one appears. Both directions of
+disguise are refused: an executable renamed `.png` fails on its bytes, and a PNG
+renamed `.exe` fails on its name, because the name is what a careless viewer
+acts on.
+
+Storage keys are random hex and never derived from the filename. Files are
+served only through `GET /evidence/[id]`, which authorises first and streams —
+never a static path, and never a redirect to a signed URL that would outlive the
+check. A refusal and a miss both return 404.
+
+## 8. Known limitations
+
+Deliberate boundaries, written down so each is a known limitation rather than an
+undiscovered defect. Phase 1's first three entries are gone: sessions are now
+revocable, the limiter is shared, and case numbers come from the database.
+
+- **No malware scanning.** `scan_status` and the download gate ship, but nothing
+  sets `clean`; uploads are marked `skipped` and are downloadable. The gate
+  exists now so that adding a scanner later changes one line instead of
+  requiring an audit of every download path.
+- **Notifications are in-app only.** No email or SMS delivery. Parties with no
+  account cannot be notified at all, because there is nowhere to send it.
+- **The session check costs one indexed read per authenticated request.** That
+  is the price of immediate revocation, paid deliberately.
+- **Sessions are JWT-transported, not Auth.js database sessions.** Auth.js v5
+  does not support `strategy: "database"` with the Credentials provider. The
+  token carries only a session id and `compliance.sessions` holds the authority,
+  which delivers immediate revocation. Do not reach for the stock strategy; it
+  will not work.
+- **`listCases` caps at 200 rows** ordered by SLA date, with no pagination. Past
+  200 open cases the queue silently truncates.
 - **Attributed reports record the actor's account id as the audit label**, so
   the audit viewer shows a UUID where an anonymous report shows `anonymous`.
   Legible, but an email would read better.
@@ -200,7 +244,7 @@ limitation rather than an undiscovered defect.
   which needs no shadow database — and which forces the migration to be read
   before it is applied.
 
-## 7. Routes
+## 9. Routes
 
 | Route | Who | Purpose |
 | --- | --- | --- |
@@ -208,8 +252,9 @@ limitation rather than an undiscovered defect.
 | `/report` | anyone | Submit a report, attributed if signed in, anonymous if not. |
 | `/report/submitted` | anyone | Reference code, and the access secret exactly once. |
 | `/report/status` | anyone | Check a report with its reference code and access secret. |
-| `/cases` | officer, investigator, admin | Case queue, most urgent first; triage from here. |
+| `/cases` | officer, investigator, admin | Case queue, most urgent first; triage and assign from here. |
 | `/cases/[id]` | officer, investigator, admin, dpo | Case detail, linked reports, status history, SLA clock. |
+| `/evidence/[id]` | officer, investigator, admin, dpo | Authorised download of one evidence file. |
 | `/audit` | admin, dpo | The audit log. |
 
 Sealed cases never appear in the queue and are refused to everyone but the data
