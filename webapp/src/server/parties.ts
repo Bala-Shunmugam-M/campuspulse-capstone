@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 export type PartyInput = {
@@ -61,6 +62,7 @@ export async function addParty(
         userAccountId: input.userAccountId ?? null,
         externalName: input.externalName ?? null,
         isAnonymous: input.isAnonymous ?? false,
+        createdAt: now(),
       },
     });
     await withAudit(
@@ -114,7 +116,7 @@ export async function removeParty(
   const kase = await caseForParties(actor, party.caseId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.caseParty.update({ where: { id: partyId }, data: { deletedAt: new Date() } });
+    await tx.caseParty.update({ where: { id: partyId }, data: { deletedAt: now() } });
     await withAudit(
       tx,
       {

@@ -6,6 +6,7 @@ import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/err
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
 import { decodeCursor, pageSize, toPage, type Page } from "@/lib/pagination";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -63,8 +64,8 @@ export async function triageReport(
   if (!report) throw new NotFoundError("That report does not exist.");
   requireSameInstitution(actor, report.institutionId);
 
-  const year = new Date().getFullYear();
-  const openedAt = new Date();
+  const openedAt = now();
+  const year = openedAt.getUTCFullYear();
   const slaDueAt = new Date(openedAt.getTime() + SLA_HOURS[input.severity] * 3_600_000);
 
   const caseNumber = await prisma.$transaction(async (tx) => {
@@ -99,6 +100,7 @@ export async function triageReport(
         fromStatus: null,
         toStatus: "submitted",
         changedById: actor.accountId,
+        changedAt: openedAt,
       },
     });
     await withAudit(
@@ -257,7 +259,7 @@ export async function changeCaseStatus(
     );
   }
 
-  const now = new Date();
+  const at = now();
 
   await prisma.$transaction(async (tx) => {
     await tx.case.update({
@@ -268,8 +270,8 @@ export async function changeCaseStatus(
         // function, and recordOutcome owns that stamp.
         // closedAt is stamped once, on first entry. A closed case can be
         // appealed and closed again; the original closing date is the true one.
-        closedAt: to === "closed" && !kase.closedAt ? now : kase.closedAt,
-        firstResponseAt: kase.firstResponseAt ?? now,
+        closedAt: to === "closed" && !kase.closedAt ? at : kase.closedAt,
+        firstResponseAt: kase.firstResponseAt ?? at,
       },
     });
 
@@ -280,6 +282,7 @@ export async function changeCaseStatus(
         toStatus: to,
         changedById: actor.accountId,
         reason,
+        changedAt: at,
       },
     });
 
@@ -340,7 +343,7 @@ export async function assignCase(
     }
   }
 
-  const now = new Date();
+  const at = now();
 
   await prisma.$transaction(async (tx) => {
     await tx.case.update({
@@ -349,7 +352,7 @@ export async function assignCase(
         assignedOfficerId: officerAccountId,
         // First officer action, whichever came first. A product definition
         // rather than a data one, so it lives here and not in a trigger.
-        firstResponseAt: kase.firstResponseAt ?? now,
+        firstResponseAt: kase.firstResponseAt ?? at,
       },
     });
     await withAudit(

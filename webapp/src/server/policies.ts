@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { AlreadyPublishedError, NotFoundError } from "@/lib/errors";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Authoring a policy is a governance act, not case work. */
@@ -83,7 +84,7 @@ async function insertNextVersion(
       ${input.bodyMarkdown},
       ${input.summary},
       ${asDate(input.effectiveFrom)}::date,
-      ${publish ? new Date() : null},
+      ${publish ? now() : null},
       ${publish?.publishedById ?? null}::uuid
     FROM compliance.policy_versions
     WHERE policy_id = ${policyId}::uuid
@@ -186,7 +187,7 @@ export async function publishVersion(
     // the last chance to correct a date the draft only guessed at.
     await tx.$executeRaw`
       UPDATE compliance.policy_versions
-      SET published_at = ${new Date()},
+      SET published_at = ${now()},
           published_by = ${actor.accountId}::uuid,
           effective_from = ${asDate(effectiveFrom)}::date
       WHERE id = ${versionId}::uuid`;
@@ -383,7 +384,7 @@ export async function getPolicy(
     orderBy: { versionNo: "desc" },
   });
 
-  const today = asDate(new Date());
+  const today = asDate(now());
   const live = versions.find(
     (v) =>
       v.publishedAt !== null &&

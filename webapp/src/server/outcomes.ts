@@ -5,6 +5,7 @@ import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 export type OutcomeInput = {
@@ -57,7 +58,7 @@ export async function recordOutcome(
   const rationale = input.rationale.trim();
   if (rationale.length < 1) throw new NotFoundError("An outcome needs a rationale.");
 
-  const now = new Date();
+  const at = now();
 
   // A case has one outcome. A case that was appealed and re-decided revises it
   // rather than gaining a second, which is both what UNIQUE (case_id) requires
@@ -77,7 +78,7 @@ export async function recordOutcome(
         finding: input.finding,
         rationale,
         decidedBy: actor.accountId,
-        decidedAt: now,
+        decidedAt: at,
       },
     });
 
@@ -85,8 +86,8 @@ export async function recordOutcome(
       where: { id: kase.id },
       data: {
         status: "resolved",
-        resolvedAt: kase.resolvedAt ?? now,
-        firstResponseAt: kase.firstResponseAt ?? now,
+        resolvedAt: kase.resolvedAt ?? at,
+        firstResponseAt: kase.firstResponseAt ?? at,
       },
     });
     await tx.caseStatusHistory.create({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 const STAFF = ["officer", "investigator", "admin", "dpo"] as const;
@@ -75,7 +76,13 @@ export async function addNote(
 
   return prisma.$transaction(async (tx) => {
     const note = await tx.caseNote.create({
-      data: { caseId: kase.id, authorId: actor.accountId, body: text, visibility },
+      data: {
+        caseId: kase.id,
+        authorId: actor.accountId,
+        body: text,
+        visibility,
+        createdAt: now(),
+      },
     });
     await withAudit(
       tx,
@@ -168,7 +175,7 @@ export async function removeNote(
   const kase = await caseForNotes(actor, note.caseId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.caseNote.update({ where: { id: noteId }, data: { deletedAt: new Date() } });
+    await tx.caseNote.update({ where: { id: noteId }, data: { deletedAt: now() } });
     await withAudit(
       tx,
       {

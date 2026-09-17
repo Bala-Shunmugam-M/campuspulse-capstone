@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AccountLockedError, InvalidCredentialsError } from "@/lib/errors";
+import { adoptSimulatedTime, now } from "@/lib/clock";
 
 export type RequestMeta = {
   requestId: string;
@@ -49,7 +50,7 @@ export async function authenticate(
     throw new InvalidCredentialsError("Invalid email or password.");
   }
 
-  if (account.lockedUntil && account.lockedUntil > new Date()) {
+  if (account.lockedUntil && account.lockedUntil > now()) {
     throw new AccountLockedError(
       `This account is locked until ${account.lockedUntil.toISOString()}.`,
     );
@@ -73,7 +74,7 @@ export async function authenticate(
           failedLoginCount: failures,
           lockedUntil:
             failures >= MAX_FAILURES
-              ? new Date(Date.now() + LOCK_MINUTES * 60_000)
+              ? new Date(now().getTime() + LOCK_MINUTES * 60_000)
               : account.lockedUntil,
         },
       });
@@ -90,7 +91,7 @@ export async function authenticate(
   await prisma.$transaction(async (tx) => {
     await tx.userAccount.update({
       where: { id: account.id },
-      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: now() },
     });
     await withAudit(tx, ctx, {
       action: "auth.login_succeeded",
@@ -108,6 +109,11 @@ export async function authenticate(
 }
 
 export function newRequestMeta(headers: Headers): RequestMeta {
+  // Every server action starts here, so this is where a simulated request hands
+  // the rest of its work a clock. Outside simulation mode the call is a no-op
+  // and the header is never read.
+  adoptSimulatedTime(headers);
+
   return {
     requestId: randomUUID(),
     ipHash: null,

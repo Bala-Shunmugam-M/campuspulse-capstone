@@ -1,6 +1,7 @@
 import type { Session } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Eight hours, matching the cap Phase 1 put on the JWT. */
@@ -12,7 +13,11 @@ export async function issueSession(accountId: string, meta: RequestMeta): Promis
   const session = await prisma.session.create({
     data: {
       userAccountId: accountId,
-      expiresAt: new Date(Date.now() + SESSION_HOURS * 3_600_000),
+      // Issued, expired, last seen and revoked all read the same clock. Mixing
+      // a real stamp with a simulated one here would make a session look
+      // revoked before it was used, which is exactly the contradiction
+      // verify.ts checks for.
+      expiresAt: new Date(now().getTime() + SESSION_HOURS * 3_600_000),
       ipHash: meta.ipHash,
       userAgent: meta.userAgent,
     },
@@ -31,13 +36,13 @@ export async function loadSession(sessionId: string): Promise<Session | null> {
   if (!UUID.test(sessionId)) return null;
 
   const session = await prisma.session.findFirst({
-    where: { id: sessionId, revokedAt: null, expiresAt: { gt: new Date() } },
+    where: { id: sessionId, revokedAt: null, expiresAt: { gt: now() } },
   });
   if (!session) return null;
 
   // Best-effort liveness. A failure here must not sign the user out.
   void prisma.session
-    .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
+    .update({ where: { id: session.id }, data: { lastSeenAt: now() } })
     .catch(() => undefined);
 
   return session;
@@ -55,7 +60,7 @@ export async function revokeSession(sessionId: string, meta: RequestMeta): Promi
   });
 
   await prisma.$transaction(async (tx) => {
-    await tx.session.update({ where: { id: sessionId }, data: { revokedAt: new Date() } });
+    await tx.session.update({ where: { id: sessionId }, data: { revokedAt: now() } });
     await withAudit(
       tx,
       {

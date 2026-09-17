@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { now } from "@/lib/clock";
 
 export type AuditContext = {
   actorAccountId: string | null;
@@ -42,6 +43,12 @@ export async function withAudit(
       requestId: ctx.requestId,
       ipHash: ctx.ipHash,
       userAgent: ctx.userAgent,
+      // Stamped here rather than left to the column default. Postgres now() is
+      // transaction time and cannot be moved, so a DB default would be the one
+      // timestamp in the whole system that simulated time could never reach --
+      // and an audit trail dated differently from the events it describes is
+      // worse than no audit trail.
+      occurredAt: now(),
     },
   });
 }

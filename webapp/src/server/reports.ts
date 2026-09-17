@@ -10,6 +10,7 @@ import {
 } from "@/lib/reference/codes";
 import { assertRateLimit } from "@/lib/rateLimit";
 import { NotFoundError } from "@/lib/errors";
+import { now } from "@/lib/clock";
 import { reportInputSchema, type ReportInput } from "@/lib/validation/report";
 import type { RequestMeta } from "@/server/accounts";
 
@@ -32,6 +33,9 @@ export async function submitReport(
         isAnonymous: false,
         reporterUserId: actor.accountId,
         channel: "web",
+        // Stamped rather than defaulted: submitted_at is where the arrival
+        // model lives, and a column default is transaction time.
+        submittedAt: now(),
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
         ...parsed,
@@ -82,6 +86,7 @@ export async function submitAnonymousReport(
         isAnonymous: true,
         reporterUserId: null,
         channel: "web",
+        submittedAt: now(),
         ipHash: meta.ipHash,
         userAgent: meta.userAgent,
         ...parsed,

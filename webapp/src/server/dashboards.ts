@@ -2,6 +2,7 @@ import { Prisma, type CaseStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireRole, type Actor } from "@/lib/auth/rbac";
 import { SETTLED_STATUSES } from "@/lib/cases/sla";
+import { now } from "@/lib/clock";
 
 /**
  * Dashboard aggregates.
@@ -94,8 +95,8 @@ function share(count: number, total: number): Share {
 export async function officerDashboard(actor: Actor): Promise<OfficerDashboard> {
   requireRole(actor, ["officer", "investigator", "admin", "dpo"]);
 
-  const asOf = atUtc(new Date());
-  const dueSoonBy = atUtc(new Date(Date.now() + DUE_SOON_HOURS * 3_600_000));
+  const asOf = atUtc(now());
+  const dueSoonBy = atUtc(new Date(now().getTime() + DUE_SOON_HOURS * 3_600_000));
   const scope = visibleCases(actor.institutionId);
 
   const [counts] = await prisma.$queryRaw<
@@ -153,7 +154,7 @@ export async function adminDashboard(actor: Actor): Promise<AdminDashboard> {
 
   const institutionId = actor.institutionId;
   const scope = visibleCases(institutionId);
-  const since = atUtc(new Date(Date.now() - INTAKE_WEEKS * 7 * 24 * 3_600_000));
+  const since = atUtc(new Date(now().getTime() - INTAKE_WEEKS * 7 * 24 * 3_600_000));
 
   const intake = await prisma.$queryRaw<{ week_starting: Date; n: bigint }[]>(Prisma.sql`
     SELECT date_trunc('week', r.submitted_at) AS week_starting, count(*) AS n
@@ -183,7 +184,7 @@ export async function adminDashboard(actor: Actor): Promise<AdminDashboard> {
     SELECT ua.id AS account_id, ua.email,
            count(c.id) FILTER (WHERE ${stillRunning}) AS open,
            count(c.id) FILTER (
-             WHERE ${stillRunning} AND c.sla_due_at < ${atUtc(new Date())}
+             WHERE ${stillRunning} AND c.sla_due_at < ${atUtc(now())}
            ) AS overdue
     FROM compliance.user_accounts ua
     JOIN compliance.role_assignments ra

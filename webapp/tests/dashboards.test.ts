@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../src/lib/db";
 import { submitAnonymousReport } from "../src/server/reports";
-import { listCases, triageReport } from "../src/server/cases";
+import { changeCaseStatus, listCases, triageReport } from "../src/server/cases";
+import { recordOutcome } from "../src/server/outcomes";
 import { adminDashboard, officerDashboard } from "../src/server/dashboards";
 import { isOverdue } from "../src/lib/cases/sla";
 import { ForbiddenError } from "../src/lib/errors";
@@ -59,6 +60,27 @@ async function aCase(title: string): Promise<string> {
   return kase.id;
 }
 
+/**
+ * Take a case all the way to closed through the real transitions.
+ *
+ * Setting status = 'closed' with an UPDATE is quicker and produces a case with
+ * no status history and no outcome -- data that looks plausible and is
+ * structurally impossible, which is exactly what verify.ts exists to catch and
+ * exactly why the simulator drives endpoints rather than writing rows.
+ */
+async function closeProperly(caseId: string): Promise<void> {
+  await changeCaseStatus(officer, caseId, "triaged", null, meta());
+  await changeCaseStatus(officer, caseId, "under_investigation", null, meta());
+  await changeCaseStatus(officer, caseId, "pending_decision", null, meta());
+  await recordOutcome(
+    officer,
+    caseId,
+    { finding: "upheld", rationale: "Recorded by the dashboard fixture." },
+    meta(),
+  );
+  await changeCaseStatus(officer, caseId, "closed", null, meta());
+}
+
 beforeAll(async () => {
   officer = await actorWithRole("NGU", "officer");
   reporter = await actorWithRole("NGU", "reporter");
@@ -76,7 +98,13 @@ beforeAll(async () => {
   const now = Date.now();
   await prisma.case.update({
     where: { id: overdue },
-    data: { slaDueAt: new Date("2020-01-01T00:00:00.000Z"), assignedOfficerId: officer.accountId },
+    data: {
+      // openedAt moves with it: an SLA that falls due before its case opened is
+      // an invariant violation, not a fixture.
+      openedAt: new Date("2019-12-25T00:00:00.000Z"),
+      slaDueAt: new Date("2020-01-01T00:00:00.000Z"),
+      assignedOfficerId: officer.accountId,
+    },
   });
   await prisma.case.update({
     where: { id: soon },
@@ -100,13 +128,18 @@ beforeAll(async () => {
   // One case resolved after its stored SLA fell due, one comfortably before.
   breachedCaseId = await aCase(`DASH ${marker} breached`);
   const met = await aCase(`DASH ${marker} met`);
+  await closeProperly(breachedCaseId);
+  await closeProperly(met);
+
+  // Only the dates are rewritten afterwards, never the status: the history rows
+  // and the outcome the transitions produced stay exactly as they were.
   await prisma.case.update({
     where: { id: breachedCaseId },
     data: {
-      status: "closed",
       severity: "low",
       openedAt: new Date("2026-02-01T09:00:00.000Z"),
       slaDueAt: new Date("2026-02-02T09:00:00.000Z"),
+      firstResponseAt: new Date("2026-02-01T10:00:00.000Z"),
       resolvedAt: new Date("2026-02-20T09:00:00.000Z"),
       closedAt: new Date("2026-02-21T09:00:00.000Z"),
     },
@@ -114,10 +147,10 @@ beforeAll(async () => {
   await prisma.case.update({
     where: { id: met },
     data: {
-      status: "closed",
       severity: "low",
       openedAt: new Date("2026-02-01T09:00:00.000Z"),
       slaDueAt: new Date("2026-02-20T09:00:00.000Z"),
+      firstResponseAt: new Date("2026-02-01T10:00:00.000Z"),
       resolvedAt: new Date("2026-02-02T09:00:00.000Z"),
       closedAt: new Date("2026-02-03T09:00:00.000Z"),
     },

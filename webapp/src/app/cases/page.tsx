@@ -5,6 +5,7 @@ import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { currentActor } from "@/lib/auth/actor";
 import { listCases, triageReport } from "@/server/cases";
 import { isOverdue } from "@/lib/cases/sla";
+import { now } from "@/lib/clock";
 import { listUntriagedReports } from "@/server/reports";
 import { newRequestMeta } from "@/server/accounts";
 import { ForbiddenError } from "@/lib/errors";
@@ -204,7 +205,7 @@ export default async function CasesPage({
                   <td className="py-2 pr-3">{c.status.replaceAll("_", " ")}</td>
                   <td className="py-2 pr-3">
                     {c.slaDueAt.toISOString().slice(0, 10)}
-                    {isOverdue(c.slaDueAt, c.status, new Date()) ? (
+                    {isOverdue(c.slaDueAt, c.status, now()) ? (
                       <span className="ml-2 rounded border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
                         Overdue
                       </span>

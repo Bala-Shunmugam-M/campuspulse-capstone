@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { now } from "@/lib/clock";
 
 /**
  * Notification primitives. They live beside withAudit rather than in
@@ -27,6 +28,7 @@ export async function notify(
       caseId: payload.caseId,
       subject: payload.subject,
       body: payload.body,
+      createdAt: now(),
     })),
   });
 }

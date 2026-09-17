@@ -22,6 +22,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.5",
     "@types/react": "^19",

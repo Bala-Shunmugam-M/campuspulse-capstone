@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole, type Actor } from "@/lib/auth/rbac";
 import { NotFoundError } from "@/lib/errors";
+import { now } from "@/lib/clock";
 
 export type NotificationView = {
   id: string;
@@ -59,7 +60,7 @@ export async function markRead(actor: Actor, notificationId: string): Promise<vo
 
   const updated = await prisma.notification.updateMany({
     where: { id: notificationId, recipientId: actor.accountId, isRead: false },
-    data: { isRead: true, readAt: new Date() },
+    data: { isRead: true, readAt: now() },
   });
   if (updated.count === 0) {
     const exists = await prisma.notification.count({
