@@ -715,6 +715,8 @@ Roughly ordered by value-to-effort:
 | **[`docs/ERD.md`](docs/ERD.md)** | Mermaid ERD, workflow diagram, incident state machine, design rationale. |
 | **[`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md)** | Auto-generated: every table, column, type, constraint and index, with live row counts. |
 | **[`sql/schema.sql`](sql/schema.sql)** | Reference DDL dump for reading without running Python. |
+| **[`WEBAPP.md`](WEBAPP.md)** | The compliance web application: what it does, who can do it, and how to run it. |
+| **[`webapp/README.md`](webapp/README.md)** | Engineering detail for that application: architecture rules, invariants, the traffic simulator. |
 
 Regenerate the data dictionary any time the schema changes:
 
