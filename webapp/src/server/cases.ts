@@ -9,7 +9,12 @@ import { decodeCursor, pageSize, toPage, type Page } from "@/lib/pagination";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
-const SLA_HOURS: Record<Severity, number> = {
+/**
+ * Exported so a test can change it and show that figures drawn from stored
+ * sla_due_at do not move. This table is the policy applied at triage; it has no
+ * say over cases already opened, and the dashboards must not consult it.
+ */
+export const SLA_HOURS: Record<Severity, number> = {
   severe: 24,
   high: 72,
   moderate: 168,

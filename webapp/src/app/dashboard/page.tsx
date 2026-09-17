@@ -1,8 +1,47 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentActor } from "@/lib/auth/actor";
-import { officerDashboard } from "@/server/dashboards";
+import { adminDashboard, officerDashboard, type Share } from "@/server/dashboards";
 import { ForbiddenError } from "@/lib/errors";
+
+/**
+ * A proportion, never without its denominator. A bare "68%" invites the wrong
+ * conclusion when n is 12, and 0/0 is "nothing to report" rather than 0%.
+ */
+function Proportion({ share, noun }: { share: Share; noun: string }) {
+  if (share.percent === null) {
+    return <span className="text-slate-600">no {noun} yet</span>;
+  }
+  return (
+    <span>
+      <strong>{share.percent.toFixed(1)}%</strong>{" "}
+      <span className="text-slate-600">
+        ({share.count} of {share.total} {noun})
+      </span>
+    </span>
+  );
+}
+
+/** Weekly intake as a sparkline of bars. Twelve bars do not earn a dependency. */
+function IntakeBars({ rows }: { rows: { weekStarting: Date; reports: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.reports));
+  return (
+    <div className="mt-3 flex items-end gap-1" role="img" aria-label="Reports per week">
+      {rows.map((r) => (
+        <div key={r.weekStarting.toISOString()} className="flex flex-1 flex-col items-center gap-1">
+          <span
+            className="w-full rounded-t-sm bg-slate-700"
+            style={{ height: `${Math.max(2, Math.round((r.reports / max) * 80))}px` }}
+          />
+          <span className="text-[10px] tabular-nums text-slate-500">{r.reports}</span>
+          <span className="text-[10px] text-slate-400">
+            {r.weekStarting.toISOString().slice(5, 10)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Figure({
   label,
@@ -88,6 +127,8 @@ export default async function DashboardPage() {
   }
 
   const median = dash.medianFirstResponseHours;
+  const isGovernance = actor.roles.some((r) => r === "admin" || r === "dpo");
+  const admin = isGovernance ? await adminDashboard(actor) : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10">
@@ -155,6 +196,147 @@ export default async function DashboardPage() {
           Sealed cases are excluded from every figure on this page, as they are from the queue.
         </p>
       </section>
+
+      {admin ? (
+        <>
+          <hr className="border-slate-200" />
+          <h2 className="text-xl font-semibold text-slate-900">Across the institution</h2>
+
+          <section className="grid gap-6 md:grid-cols-2">
+            <div className="rounded border border-slate-300 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                SLA breach rate
+              </h3>
+              <p className="mt-2 text-sm text-slate-800">
+                <Proportion share={admin.slaBreachRate} noun="resolved cases" />
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Measured from the due date stored when each case was opened, against when it was
+                resolved. Changing the severity policy today does not restate whether past cases
+                breached.
+              </p>
+            </div>
+
+            <div className="rounded border border-slate-300 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Anonymous reports
+              </h3>
+              <p className="mt-2 text-sm text-slate-800">
+                <Proportion share={admin.anonymousShare} noun="reports" />
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                The share of intake submitted without a reporter identity.
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Intake by week
+            </h3>
+            {admin.intakeByWeek.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">No reports in this period.</p>
+            ) : (
+              <IntakeBars rows={admin.intakeByWeek} />
+            )}
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Officer workload
+            </h3>
+            <table className="mt-3 w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-300 text-left text-slate-600">
+                  <th className="py-2 pr-3 font-medium">Officer</th>
+                  <th className="py-2 pr-3 font-medium">Open</th>
+                  <th className="py-2 pr-3 font-medium">Overdue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {admin.officerWorkload.map((w) => (
+                  <tr key={w.accountId} className="border-b border-slate-200">
+                    <td className="py-2 pr-3 font-mono text-xs">{w.email}</td>
+                    <td className="py-2 pr-3 tabular-nums">{w.open}</td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {w.overdue > 0 ? (
+                        <span className="font-semibold text-red-800">{w.overdue}</span>
+                      ) : (
+                        w.overdue
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Outcome mix
+            </h3>
+            {admin.outcomeMix.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">No case has reached an outcome yet.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-1 text-sm">
+                {admin.outcomeMix.map((o) => (
+                  <li key={o.finding} className="border-b border-slate-200 py-1">
+                    <span className="inline-block w-44 text-slate-700">
+                      {o.finding.replaceAll("_", " ")}
+                    </span>
+                    <Proportion
+                      share={{ count: o.count, total: o.total, percent: o.percent }}
+                      noun="outcomes"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Policy acknowledgement coverage
+            </h3>
+            {admin.policyCoverage.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">No policy is in force.</p>
+            ) : (
+              <table className="mt-3 w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-300 text-left text-slate-600">
+                    <th className="py-2 pr-3 font-medium">Policy</th>
+                    <th className="py-2 pr-3 font-medium">In force</th>
+                    <th className="py-2 pr-3 font-medium">Acknowledged</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {admin.policyCoverage.map((p) => (
+                    <tr key={p.policyId} className="border-b border-slate-200">
+                      <td className="py-2 pr-3">
+                        <Link className="underline" href={`/policies/${p.policyId}`}>
+                          <span className="font-mono text-xs text-slate-500">{p.code}</span>{" "}
+                          {p.title}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums">v{p.versionNo}</td>
+                      <td className="py-2 pr-3">
+                        <Proportion
+                          share={{ count: p.done, total: p.required, percent: p.percent }}
+                          noun="accounts"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-3 text-xs text-slate-500">
+              Coverage is counted against the version in force. Superseding a policy resets it,
+              because nobody has yet read the new text.
+            </p>
+          </section>
+        </>
+      ) : null}
     </main>
   );
 }
