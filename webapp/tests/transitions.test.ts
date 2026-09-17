@@ -4,6 +4,7 @@ import type { CaseStatus } from "@prisma/client";
 import { prisma } from "../src/lib/db";
 import { submitAnonymousReport } from "../src/server/reports";
 import { changeCaseStatus, triageReport } from "../src/server/cases";
+import { recordOutcome } from "../src/server/outcomes";
 import { TRANSITIONS, canTransition, findTransition } from "../src/lib/cases/transitions";
 import type { Actor } from "../src/lib/auth/rbac";
 
@@ -66,7 +67,13 @@ async function caseAt(target: CaseStatus): Promise<string> {
   };
 
   for (const step of routes[target]) {
-    await changeCaseStatus(admin, id, step, null, meta());
+    // "resolved" is reached by recording the decision, never by a bare status
+    // change -- see changeCaseStatus.
+    if (step === "resolved") {
+      await recordOutcome(admin, id, { finding: "upheld", rationale: "fixture" }, meta());
+    } else {
+      await changeCaseStatus(admin, id, step, null, meta());
+    }
   }
   return id;
 }
@@ -158,7 +165,7 @@ describe("changeCaseStatus", () => {
     await changeCaseStatus(admin, id, "appealed", null, meta());
     await changeCaseStatus(admin, id, "under_investigation", null, meta());
     await changeCaseStatus(admin, id, "pending_decision", null, meta());
-    await changeCaseStatus(admin, id, "resolved", null, meta());
+    await recordOutcome(admin, id, { finding: "upheld", rationale: "re-decided" }, meta());
     await changeCaseStatus(admin, id, "closed", null, meta());
 
     const again = await prisma.case.findUniqueOrThrow({ where: { id } });

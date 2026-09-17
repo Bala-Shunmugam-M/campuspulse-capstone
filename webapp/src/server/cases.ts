@@ -205,6 +205,15 @@ export async function changeCaseStatus(
     );
   }
 
+  // Resolving is not a bare status change: "resolved" asserts that a decision
+  // was reached, and a resolved case with no recorded finding is the gap the
+  // outcomes table exists to close. recordOutcome writes both together.
+  if (to === "resolved") {
+    throw new InvalidTransitionError(
+      "A case is resolved by recording its outcome, not by changing its status.",
+    );
+  }
+
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
@@ -212,9 +221,10 @@ export async function changeCaseStatus(
       where: { id: kase.id },
       data: {
         status: to,
-        // Stamped once, on first entry. Re-opening an appealed case and
-        // resolving it again must not rewrite when it was first resolved.
-        resolvedAt: to === "resolved" && !kase.resolvedAt ? now : kase.resolvedAt,
+        // resolvedAt is not set here: "resolved" is unreachable through this
+        // function, and recordOutcome owns that stamp.
+        // closedAt is stamped once, on first entry. A closed case can be
+        // appealed and closed again; the original closing date is the true one.
         closedAt: to === "closed" && !kase.closedAt ? now : kase.closedAt,
         firstResponseAt: kase.firstResponseAt ?? now,
       },

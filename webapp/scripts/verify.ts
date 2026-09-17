@@ -91,6 +91,92 @@ async function main() {
           AND a.action = 'report.submitted')`),
   );
 
+  // ---- phase 2 ----
+
+  add(
+    "no case has more than one outcome",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM (
+        SELECT case_id FROM compliance.outcomes GROUP BY case_id HAVING count(*) > 1
+      ) d`),
+  );
+
+  add(
+    "every resolved or closed case has an outcome",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.cases c
+      WHERE c.status IN ('resolved', 'closed') AND c.deleted_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM compliance.outcomes o WHERE o.case_id = c.id)`),
+  );
+
+  add(
+    "every sanction subject belongs to its case",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.sanctions s
+      JOIN compliance.outcomes o ON o.id = s.outcome_id
+      JOIN compliance.case_parties p ON p.id = s.subject_party_id
+      WHERE p.case_id <> o.case_id`),
+  );
+
+  add(
+    "every party is identified, named or anonymous",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.case_parties
+      WHERE NOT (
+        (user_account_id IS NOT NULL AND external_name IS NULL)
+        OR (user_account_id IS NULL AND external_name IS NOT NULL)
+        OR (is_anonymous AND user_account_id IS NULL AND external_name IS NULL)
+      )`),
+  );
+
+  add(
+    "no evidence file is orphaned",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.evidence_files
+      WHERE case_id IS NULL AND report_id IS NULL`),
+  );
+
+  add(
+    "every live evidence file has a digest",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.evidence_files
+      WHERE deleted_at IS NULL AND (sha256 IS NULL OR length(sha256) <> 64)`),
+  );
+
+  add(
+    "notification recipients share the case institution",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.notifications n
+      JOIN compliance.cases c ON c.id = n.case_id
+      JOIN compliance.user_accounts ua ON ua.id = n.recipient_id
+      WHERE ua.institution_id <> c.institution_id`),
+  );
+
+  add(
+    "no case number repeats within an institution",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM (
+        SELECT institution_id, case_number FROM compliance.cases
+        GROUP BY institution_id, case_number HAVING count(*) > 1
+      ) d`),
+  );
+
+  add(
+    "no revoked session was used after revocation",
+    "0 rows",
+    await scalar(prisma.$queryRaw`
+      SELECT count(*) AS n FROM compliance.sessions
+      WHERE revoked_at IS NOT NULL AND last_seen_at > revoked_at`),
+  );
+
   const width = Math.max(...checks.map((c) => c.name.length));
   console.log("");
   console.log(

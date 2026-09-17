@@ -59,13 +59,25 @@ export async function recordOutcome(
 
   const now = new Date();
 
+  // A case has one outcome. A case that was appealed and re-decided revises it
+  // rather than gaining a second, which is both what UNIQUE (case_id) requires
+  // and what "the finding changed on appeal" actually means.
+  const existing = await prisma.outcome.findUnique({ where: { caseId: kase.id } });
+
   return prisma.$transaction(async (tx) => {
-    const outcome = await tx.outcome.create({
-      data: {
+    const outcome = await tx.outcome.upsert({
+      where: { caseId: kase.id },
+      create: {
         caseId: kase.id,
         finding: input.finding,
         rationale,
         decidedBy: actor.accountId,
+      },
+      update: {
+        finding: input.finding,
+        rationale,
+        decidedBy: actor.accountId,
+        decidedAt: now,
       },
     });
 
@@ -96,10 +108,13 @@ export async function recordOutcome(
       userAgent: meta.userAgent,
     };
     await withAudit(tx, ctx, {
-      action: "case.outcome_recorded",
+      action: existing ? "case.outcome_revised" : "case.outcome_recorded",
       entityType: "case",
       entityId: kase.id,
-      after: { outcomeId: outcome.id, finding: input.finding },
+      before: existing
+        ? { finding: existing.finding, rationale: existing.rationale }
+        : undefined,
+      after: { outcomeId: outcome.id, finding: input.finding, rationale },
     });
     await withAudit(tx, ctx, {
       action: "case.status_changed",
