@@ -26,6 +26,7 @@ ENV/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.claude/
 .claude-flow/
 .ipynb_checkpoints/
 htmlcov/
