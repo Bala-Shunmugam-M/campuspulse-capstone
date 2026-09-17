@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireRole, type Actor } from "@/lib/auth/rbac";
 import { NotFoundError } from "@/lib/errors";
@@ -21,29 +20,6 @@ export type ActivityEntry = {
   actorEmail: string | null;
   occurredAt: Date;
 };
-
-/**
- * Queue notifications inside the caller's transaction, exactly like withAudit.
- * A notification announcing something that then rolled back is a message about
- * an event that never happened.
- */
-export async function notify(
-  tx: Prisma.TransactionClient,
-  recipientIds: string[],
-  payload: { caseId: string | null; subject: string; body: string },
-): Promise<void> {
-  const unique = [...new Set(recipientIds)].filter(Boolean);
-  if (unique.length === 0) return;
-
-  await tx.notification.createMany({
-    data: unique.map((recipientId) => ({
-      recipientId,
-      caseId: payload.caseId,
-      subject: payload.subject,
-      body: payload.body,
-    })),
-  });
-}
 
 export async function listNotifications(
   actor: Actor,
@@ -123,27 +99,4 @@ export async function listActivity(actor: Actor, limit = 50): Promise<ActivityEn
     actorEmail: r.actor_email,
     occurredAt: r.occurred_at,
   }));
-}
-
-/**
- * Who hears about a change to this case: the assigned officer and any party
- * holding an account. Parties without an account have nowhere to be notified,
- * which is a limitation of in-app notifications rather than an oversight.
- */
-export async function caseAudience(
-  tx: Prisma.TransactionClient,
-  caseId: string,
-): Promise<string[]> {
-  const [kase, parties] = await Promise.all([
-    tx.case.findUnique({ where: { id: caseId }, select: { assignedOfficerId: true } }),
-    tx.caseParty.findMany({
-      where: { caseId, deletedAt: null, userAccountId: { not: null } },
-      select: { userAccountId: true },
-    }),
-  ]);
-
-  return [
-    ...(kase?.assignedOfficerId ? [kase.assignedOfficerId] : []),
-    ...parties.map((p) => p.userAccountId as string),
-  ];
 }

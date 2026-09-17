@@ -4,7 +4,7 @@ import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
-import { caseAudience, notify } from "@/server/notifications";
+import { caseAudience, notify } from "@/lib/notify";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
