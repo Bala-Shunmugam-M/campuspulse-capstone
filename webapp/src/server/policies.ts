@@ -298,6 +298,78 @@ export async function listPolicies(actor: Actor): Promise<PolicyView[]> {
   }));
 }
 
+export type PolicySearchHit = {
+  policyId: string;
+  code: string;
+  title: string;
+  versionId: string;
+  versionNo: number;
+  /** ts_headline output, marked with [[HL]]…[[/HL]] rather than HTML tags. */
+  snippet: string;
+  rank: number;
+};
+
+/**
+ * Full-text search across the policy text that is actually in force.
+ *
+ * Drafts are excluded and superseded versions are excluded, because a search
+ * result is an answer to "what are the rules", and an answer drawn from text
+ * that either has not taken effect or no longer applies is worse than no answer.
+ *
+ * ts_headline is asked for sentinel markers instead of its default <b> tags:
+ * the snippet is rendered as JSX, and a highlight that arrived as HTML would be
+ * either escaped into visible angle brackets or, worse, trusted.
+ */
+export async function searchPolicies(
+  actor: Actor,
+  query: string,
+  limit = 20,
+): Promise<PolicySearchHit[]> {
+  requireRole(actor, ["reporter", "officer", "investigator", "admin", "dpo"]);
+
+  const text = query.trim();
+  if (!text) return [];
+
+  const rows = await prisma.$queryRaw<
+    {
+      policy_id: string;
+      code: string;
+      title: string;
+      version_id: string;
+      version_no: number;
+      snippet: string;
+      rank: number;
+    }[]
+  >`
+    SELECT p.id AS policy_id, p.code, p.title,
+           v.id AS version_id, v.version_no,
+           ts_headline('english',
+             coalesce(v.summary, '') || ' ' || v.body_markdown,
+             q.query,
+             'StartSel=[[HL]],StopSel=[[/HL]],MaxWords=40,MinWords=15,MaxFragments=2') AS snippet,
+           ts_rank(v.body_tsv, q.query) AS rank
+    FROM compliance.policies p
+    JOIN compliance.policy_versions v ON v.policy_id = p.id
+    CROSS JOIN LATERAL (SELECT plainto_tsquery('english', ${text}) AS query) q
+    WHERE p.institution_id = ${actor.institutionId}::uuid
+      AND v.published_at IS NOT NULL
+      AND v.effective_from <= current_date
+      AND (v.effective_to IS NULL OR v.effective_to > current_date)
+      AND v.body_tsv @@ q.query
+    ORDER BY rank DESC, p.code ASC
+    LIMIT ${limit}::int`;
+
+  return rows.map((r) => ({
+    policyId: r.policy_id,
+    code: r.code,
+    title: r.title,
+    versionId: r.version_id,
+    versionNo: Number(r.version_no),
+    snippet: r.snippet,
+    rank: Number(r.rank),
+  }));
+}
+
 /** One policy with its whole version history, newest first. */
 export async function getPolicy(
   actor: Actor,

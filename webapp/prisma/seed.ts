@@ -1,7 +1,7 @@
 import type { ComplianceRole } from "@prisma/client";
 import { prisma } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth/password";
-import { CATEGORIES, DEPARTMENTS, INSTITUTIONS, SEED_PASSWORD } from "./seed-data";
+import { CATEGORIES, DEPARTMENTS, INSTITUTIONS, POLICIES, SEED_PASSWORD } from "./seed-data";
 
 const ROLE_MIX: { role: ComplianceRole; count: number }[] = [
   { role: "admin", count: 1 },
@@ -82,12 +82,47 @@ async function main() {
     }
   }
 
-  const [institutions, accounts, grants] = await Promise.all([
+  // Policies last: each needs a published version, and publishing names an
+  // account, so the accounts above must exist first.
+  for (const inst of INSTITUTIONS) {
+    const institution = await prisma.institution.findFirstOrThrow({ where: { code: inst.code } });
+    const publisher = await prisma.userAccount.findFirstOrThrow({
+      where: {
+        institutionId: institution.id,
+        roles: { some: { role: "admin", revokedAt: null } },
+      },
+    });
+
+    for (const policy of POLICIES) {
+      const [row] = await prisma.$queryRaw<{ id: string }[]>`
+        INSERT INTO compliance.policies
+          (id, institution_id, code, title, owner_department, is_active, created_at, updated_at)
+        VALUES (gen_random_uuid(), ${institution.id}::uuid, ${policy.code}, ${policy.title},
+                ${policy.ownerDepartment}, true, now(), now())
+        ON CONFLICT (institution_id, code) DO UPDATE SET title = EXCLUDED.title
+        RETURNING id`;
+
+      // Idempotent: a seeded policy gets its version 1 once. Re-running must not
+      // append a version, because a version people have acknowledged is history.
+      await prisma.$executeRaw`
+        INSERT INTO compliance.policy_versions
+          (id, policy_id, version_no, body_markdown, summary, effective_from, published_at, published_by)
+        SELECT gen_random_uuid(), ${row.id}::uuid, 1, ${policy.body}, ${policy.summary},
+               '2026-01-01'::date, now(), ${publisher.id}::uuid
+        WHERE NOT EXISTS (
+          SELECT 1 FROM compliance.policy_versions WHERE policy_id = ${row.id}::uuid)`;
+    }
+  }
+
+  const [institutions, accounts, grants, policies] = await Promise.all([
     prisma.institution.count(),
     prisma.userAccount.count(),
     prisma.roleAssignment.count({ where: { revokedAt: null } }),
+    prisma.policy.count(),
   ]);
-  console.log(`institutions ${institutions}  accounts ${accounts}  live role grants ${grants}`);
+  console.log(
+    `institutions ${institutions}  accounts ${accounts}  live role grants ${grants}  policies ${policies}`,
+  );
   console.log(`\nSign in as  admin1@northgate.edu  /  ${SEED_PASSWORD}`);
 }
 
