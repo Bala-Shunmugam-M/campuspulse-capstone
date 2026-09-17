@@ -71,7 +71,7 @@ export default async function PoliciesPage({
 
       {query ? (
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Results for “{query}” ({hits.length})
           </h2>
           {hits.length === 0 ? (
@@ -87,7 +87,7 @@ export default async function PoliciesPage({
                     <Link className="font-medium underline" href={`/policies/${hit.policyId}`}>
                       {hit.title}
                     </Link>
-                    <span className="text-xs text-slate-500">version {hit.versionNo}</span>
+                    <span className="text-xs text-slate-600">version {hit.versionNo}</span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-700">
                     <Snippet text={hit.snippet} />
@@ -100,7 +100,7 @@ export default async function PoliciesPage({
       ) : null}
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           All policies ({policies.length})
         </h2>
         {policies.length === 0 ? (
@@ -127,7 +127,7 @@ export default async function PoliciesPage({
                   <td className="py-2 pr-3 text-slate-600">{p.ownerDepartment ?? "—"}</td>
                   <td className="py-2 pr-3">
                     {p.liveVersionNo === null ? (
-                      <span className="text-slate-500">draft only</span>
+                      <span className="text-slate-600">draft only</span>
                     ) : (
                       <span>version {p.liveVersionNo}</span>
                     )}

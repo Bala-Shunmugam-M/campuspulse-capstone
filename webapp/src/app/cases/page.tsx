@@ -170,7 +170,7 @@ export default async function CasesPage({
       </form>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Cases ({page.rows.length}) — most urgent first
         </h2>
         {page.rows.length === 0 ? (
@@ -243,7 +243,7 @@ export default async function CasesPage({
 
       {untriaged.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Untriaged reports ({untriaged.length})
           </h2>
           <ul className="mt-3 flex flex-col gap-3">
@@ -252,7 +252,7 @@ export default async function CasesPage({
                 <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
                   <span className="font-mono text-slate-600">{r.referenceCode}</span>
                   <span className="font-medium text-slate-900">{r.title}</span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-600">
                     {r.isAnonymous ? "anonymous" : "attributed"} · reported{" "}
                     {r.severitySelfReported}
                   </span>

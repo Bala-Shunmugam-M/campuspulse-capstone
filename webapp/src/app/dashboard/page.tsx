@@ -33,8 +33,8 @@ function IntakeBars({ rows }: { rows: { weekStarting: Date; reports: number }[] 
             className="w-full rounded-t-sm bg-slate-700"
             style={{ height: `${Math.max(2, Math.round((r.reports / max) * 80))}px` }}
           />
-          <span className="text-[10px] tabular-nums text-slate-500">{r.reports}</span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] tabular-nums text-slate-600">{r.reports}</span>
+          <span className="text-[10px] text-slate-600">
             {r.weekStarting.toISOString().slice(5, 10)}
           </span>
         </div>
@@ -67,7 +67,7 @@ function Figure({
       >
         {value}
       </div>
-      <div className="mt-1 text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 text-xs uppercase tracking-wide text-slate-600">{label}</div>
     </div>
   );
   return href ? (
@@ -164,7 +164,7 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Median first response
         </h2>
         <p className="mt-2 text-sm text-slate-800">
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
             <>
               <strong>{median.toFixed(1)} hours</strong> from a case opening to the first officer
               action on it.
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="mt-1 block text-xs text-slate-600">
                 The median, not the mean: one case left open over a holiday should not move this
                 number.
               </span>
@@ -184,7 +184,7 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Cases by status
         </h2>
         {dash.byStatus.length === 0 ? (
@@ -192,7 +192,7 @@ export default async function DashboardPage() {
         ) : (
           <StatusBars rows={dash.byStatus} />
         )}
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-slate-600">
           Sealed cases are excluded from every figure on this page, as they are from the queue.
         </p>
       </section>
@@ -204,13 +204,13 @@ export default async function DashboardPage() {
 
           <section className="grid gap-6 md:grid-cols-2">
             <div className="rounded border border-slate-300 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
                 SLA breach rate
               </h3>
               <p className="mt-2 text-sm text-slate-800">
                 <Proportion share={admin.slaBreachRate} noun="resolved cases" />
               </p>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-600">
                 Measured from the due date stored when each case was opened, against when it was
                 resolved. Changing the severity policy today does not restate whether past cases
                 breached.
@@ -218,20 +218,20 @@ export default async function DashboardPage() {
             </div>
 
             <div className="rounded border border-slate-300 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
                 Anonymous reports
               </h3>
               <p className="mt-2 text-sm text-slate-800">
                 <Proportion share={admin.anonymousShare} noun="reports" />
               </p>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-600">
                 The share of intake submitted without a reporter identity.
               </p>
             </div>
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
               Intake by week
             </h3>
             {admin.intakeByWeek.length === 0 ? (
@@ -242,7 +242,7 @@ export default async function DashboardPage() {
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
               Officer workload
             </h3>
             <table className="mt-3 w-full border-collapse text-sm">
@@ -272,7 +272,7 @@ export default async function DashboardPage() {
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
               Outcome mix
             </h3>
             {admin.outcomeMix.length === 0 ? (
@@ -295,7 +295,7 @@ export default async function DashboardPage() {
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
               Policy acknowledgement coverage
             </h3>
             {admin.policyCoverage.length === 0 ? (
@@ -314,7 +314,7 @@ export default async function DashboardPage() {
                     <tr key={p.policyId} className="border-b border-slate-200">
                       <td className="py-2 pr-3">
                         <Link className="underline" href={`/policies/${p.policyId}`}>
-                          <span className="font-mono text-xs text-slate-500">{p.code}</span>{" "}
+                          <span className="font-mono text-xs text-slate-600">{p.code}</span>{" "}
                           {p.title}
                         </Link>
                       </td>
@@ -330,7 +330,7 @@ export default async function DashboardPage() {
                 </tbody>
               </table>
             )}
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-slate-600">
               Coverage is counted against the version in force. Superseding a policy resets it,
               because nobody has yet read the new text.
             </p>

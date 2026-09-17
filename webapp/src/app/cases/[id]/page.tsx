@@ -35,7 +35,7 @@ const SANCTION_TYPES: SanctionType[] = [
 ];
 
 const STAFF = ["officer", "investigator", "admin", "dpo"];
-const label = "text-sm font-semibold uppercase tracking-wide text-slate-500";
+const label = "text-sm font-semibold uppercase tracking-wide text-slate-600";
 const field = "rounded border border-slate-300 px-2 py-1 text-sm";
 const button =
   "rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-800";
@@ -229,7 +229,7 @@ export default async function CaseDetailPage({
       ) : null}
 
       <section className="rounded border border-slate-300 bg-slate-50 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">SLA</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">SLA</h2>
         <p className="mt-2 text-sm text-slate-800">
           Due {kase.slaDueAt.toISOString().replace("T", " ").slice(0, 16)} —{" "}
           {overdue ? `${Math.abs(hoursLeft)} hours overdue` : `${hoursLeft} hours remaining`}
@@ -237,7 +237,7 @@ export default async function CaseDetailPage({
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Linked reports ({reports.length})
         </h2>
         <ul className="mt-3 flex flex-col gap-2">
@@ -252,7 +252,7 @@ export default async function CaseDetailPage({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-600">
                 {r.isAnonymous ? "anonymous" : "attributed"} · reported {r.severitySelfReported} ·
                 submitted {r.submittedAt.toISOString().slice(0, 10)}
               </p>
@@ -345,7 +345,7 @@ export default async function CaseDetailPage({
                 <span className="rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
                   {VISIBILITY_LABEL[n.visibility] ?? n.visibility}
                 </span>
-                <span className="font-mono text-xs text-slate-500">
+                <span className="font-mono text-xs text-slate-600">
                   {n.createdAt.toISOString().replace("T", " ").slice(0, 16)}
                 </span>
               </div>
@@ -398,12 +398,12 @@ export default async function CaseDetailPage({
                   <Link className="font-medium underline" href={`/evidence/${f.id}`}>
                     {f.originalFilename}
                   </Link>
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="ml-2 text-xs text-slate-600">
                     {f.mimeType} · {Math.max(1, Math.round(f.byteSize / 1024))} KB · scan{" "}
                     {f.scanStatus}
                   </span>
                 </span>
-                <span className="font-mono text-xs text-slate-400">{f.sha256.slice(0, 12)}</span>
+                <span className="font-mono text-xs text-slate-600">{f.sha256.slice(0, 12)}</span>
               </li>
             ))}
           </ul>
@@ -413,7 +413,7 @@ export default async function CaseDetailPage({
             <input type="file" name="file" required className="text-sm" />
             <button type="submit" className={button}>Attach</button>
           </form>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-600">
             PNG, JPEG, GIF, PDF or plain text, up to 10 MB. The type is read from the
             file&rsquo;s contents, not its name.
           </p>
@@ -429,13 +429,13 @@ export default async function CaseDetailPage({
                 <span className="font-semibold text-slate-900">
                   {outcome.finding.replaceAll("_", " ")}
                 </span>
-                <span className="ml-2 font-mono text-xs text-slate-500">
+                <span className="ml-2 font-mono text-xs text-slate-600">
                   decided {outcome.decidedAt.toISOString().slice(0, 10)}
                 </span>
               </p>
               <p className="mt-2 whitespace-pre-wrap text-slate-800">{outcome.rationale}</p>
 
-              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Sanctions ({outcome.sanctions.length})
               </h3>
               <ul className="mt-2 flex flex-col gap-1">
@@ -444,7 +444,7 @@ export default async function CaseDetailPage({
                     <span className="font-medium">{s.sanctionType.replaceAll("_", " ")}</span>
                     {" — "}
                     {s.description}
-                    <span className="ml-2 font-mono text-xs text-slate-500">
+                    <span className="ml-2 font-mono text-xs text-slate-600">
                       {s.effectiveFrom.toISOString().slice(0, 10)}
                       {s.effectiveTo ? ` → ${s.effectiveTo.toISOString().slice(0, 10)}` : ""}
                     </span>
@@ -525,13 +525,13 @@ export default async function CaseDetailPage({
       ) : null}
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Status history
         </h2>
         <ol className="mt-3 flex flex-col gap-2">
           {kase.statusHistory.map((h, i) => (
             <li key={i} className="flex items-baseline gap-3 text-sm">
-              <span className="font-mono text-xs text-slate-500">
+              <span className="font-mono text-xs text-slate-600">
                 {h.changedAt.toISOString().replace("T", " ").slice(0, 16)}
               </span>
               <span className="text-slate-800">

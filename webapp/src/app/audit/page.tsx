@@ -101,7 +101,7 @@ export default async function AuditPage({
       </form>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           {visible.length} event{visible.length === 1 ? "" : "s"} — newest first
         </h2>
         {visible.length === 0 ? (
@@ -136,7 +136,7 @@ export default async function AuditPage({
                   <td className="py-2 pr-3 font-medium text-slate-900">{e.action}</td>
                   <td className="py-2 pr-3">
                     <span className="text-slate-700">{e.entityType.replaceAll("_", " ")}</span>
-                    <span className="ml-2 font-mono text-xs text-slate-500">
+                    <span className="ml-2 font-mono text-xs text-slate-600">
                       {e.entityId.slice(0, 8)}
                     </span>
                   </td>

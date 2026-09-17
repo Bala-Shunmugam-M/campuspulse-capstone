@@ -105,7 +105,7 @@ export default async function DirectoryPage({
           </button>
         </form>
 
-        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-600">
           People ({people.rows.length})
         </h2>
         {people.rows.length === 0 ? (
@@ -159,14 +159,14 @@ export default async function DirectoryPage({
 
       <section className="grid gap-8 md:grid-cols-2">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Locations ({locations.length})
           </h2>
           <ul className="mt-3 flex flex-col gap-1 text-sm">
             {locations.map((l) => (
               <li key={l.id} className="border-b border-slate-200 py-1">
                 <span className="font-medium text-slate-900">{l.name}</span>{" "}
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-600">
                   {l.locationType}
                   {l.parentName ? ` · in ${l.parentName}` : ""}
                   {l.code ? ` · ${l.code}` : ""}
@@ -177,14 +177,14 @@ export default async function DirectoryPage({
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Categories ({categories.length})
           </h2>
           <ul className="mt-3 flex flex-col gap-1 text-sm">
             {categories.map((c) => (
               <li key={c.id} className="border-b border-slate-200 py-1">
                 <span className="font-medium text-slate-900">{c.name}</span>{" "}
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-600">
                   {c.categoryType.replaceAll("_", " ")}
                   {c.slaHours === null ? "" : ` · ${c.slaHours}h target`}
                 </span>

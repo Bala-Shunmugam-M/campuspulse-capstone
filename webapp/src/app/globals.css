@@ -1,8 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * This application is authored for a light surface throughout: every page uses
+ * slate text on white, and nothing but the leftover template page carries a
+ * `dark:` variant.
+ *
+ * It previously kept create-next-app's `prefers-color-scheme: dark` block,
+ * which flipped the body to near-black while all that slate text stayed dark --
+ * so on any machine with the OS in dark mode the interface rendered dark-on-
+ * dark and was effectively unreadable. Pinning the scheme is the fix: a real
+ * dark theme would mean a `dark:` variant on all 269 colour utilities, and
+ * nobody has asked for one.
+ *
+ * `color-scheme: light` matters as much as the colours. Without it the browser
+ * renders native form controls -- selects, date inputs, scrollbars -- to the OS
+ * preference, so the filter dropdowns on the case queue came out dark-on-dark
+ * even where the surrounding page was correct.
+ */
 :root {
+  color-scheme: light;
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a; /* slate-900 */
 }
 
 @theme inline {
@@ -12,15 +30,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* The layout loads Geist and exposes it as --font-geist-sans; the template's
+     hard-coded Arial was overriding it. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

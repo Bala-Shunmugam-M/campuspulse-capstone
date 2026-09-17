@@ -76,7 +76,7 @@ export default async function PolicyDetailPage({
           </Link>
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-slate-900">
-          <span className="font-mono text-slate-500">{policy.code}</span> {policy.title}
+          <span className="font-mono text-slate-600">{policy.code}</span> {policy.title}
         </h1>
         <p className="mt-1 text-sm text-slate-600">
           Owned by {policy.ownerDepartment ?? "no department"} ·{" "}
@@ -97,7 +97,7 @@ export default async function PolicyDetailPage({
 
       {coverage ? (
         <section className="rounded border border-slate-300 p-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Acknowledgement coverage
           </h2>
           {coverage.liveVersionId === null ? (
@@ -112,7 +112,7 @@ export default async function PolicyDetailPage({
                 ? ` (${Math.round((coverage.done / coverage.required) * 100)}%)`
                 : ""}
               .
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="mt-1 block text-xs text-slate-600">
                 Coverage is counted against the version in force. Superseding a policy resets it,
                 because nobody has yet read the new text.
               </span>
@@ -146,7 +146,7 @@ export default async function PolicyDetailPage({
       ) : null}
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
           Version history ({versions.length})
         </h2>
         <table className="mt-3 w-full border-collapse text-sm">
@@ -187,7 +187,7 @@ export default async function PolicyDetailPage({
 
       {shown ? (
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
             Version {shown.versionNo}
             {shown.publishedAt === null ? " (draft)" : ""} · in force from{" "}
             {day(shown.effectiveFrom)}
