@@ -125,7 +125,7 @@ describe("listCases assignee filter", () => {
     await aCase(); // left unassigned
     await assignCase(admin, mine, officerAccountId, meta());
 
-    const rows = await listCases(admin, { assignedTo: officerAccountId });
+    const { rows } = await listCases(admin, { assignedTo: officerAccountId });
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((c) => c.assignedOfficerId === officerAccountId)).toBe(true);
     expect(rows.map((c) => c.id)).toContain(mine);
@@ -135,11 +135,11 @@ describe("listCases assignee filter", () => {
     const assigned = await aCase();
     await assignCase(admin, assigned, officerAccountId, meta());
 
-    const rows = await listCases(admin, { assignedTo: "unassigned" });
+    const { rows } = await listCases(admin, { assignedTo: "unassigned" });
 
-    // Asserted as a property rather than by hunting for one row: listCases caps
-    // at 200 ordered by SLA date, so a freshly created case need not be on the
-    // page even though the filter is working.
+    // Asserted as a property rather than by hunting for one row: listCases
+    // returns one page ordered by SLA date, so a freshly created case need not
+    // be on the first page even though the filter is working.
     expect(rows.every((c) => c.assignedOfficerId === null)).toBe(true);
     expect(rows.map((c) => c.id)).not.toContain(assigned);
   });

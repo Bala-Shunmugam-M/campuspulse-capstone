@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { currentActor } from "@/lib/auth/actor";
 import { listCases, triageReport } from "@/server/cases";
+import { isOverdue } from "@/lib/cases/sla";
 import { listUntriagedReports } from "@/server/reports";
 import { newRequestMeta } from "@/server/accounts";
 import { ForbiddenError } from "@/lib/errors";
@@ -27,9 +28,8 @@ const SEVERITY_STYLE: Record<string, string> = {
   low: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
-function isOverdue(slaDueAt: Date, status: CaseStatus): boolean {
-  return slaDueAt.getTime() < Date.now() && status !== "resolved" && status !== "closed";
-}
+/** Small enough that the next-page link is exercised in ordinary use. */
+const PAGE_SIZE = 50;
 
 async function triage(formData: FormData) {
   "use server";
@@ -52,24 +52,31 @@ async function triage(formData: FormData) {
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; severity?: string; assignedTo?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    severity?: string;
+    assignedTo?: string;
+    cursor?: string;
+  }>;
 }) {
   const actor = await currentActor();
   if (!actor) redirect("/login");
 
-  const { status, severity, assignedTo } = await searchParams;
+  const { status, severity, assignedTo, cursor } = await searchParams;
   const filter = {
     status: STATUSES.includes(status as CaseStatus) ? (status as CaseStatus) : undefined,
     severity: SEVERITY_ORDER.includes(severity as Severity) ? (severity as Severity) : undefined,
     assignedTo: assignedTo || undefined,
+    cursor: cursor || undefined,
+    limit: PAGE_SIZE,
   };
 
   const canTriage = actor.roles.some((r) => r === "officer" || r === "admin");
 
-  let cases;
+  let page;
   let untriaged;
   try {
-    [cases, untriaged] = await Promise.all([
+    [page, untriaged] = await Promise.all([
       listCases(actor, filter),
       canTriage ? listUntriagedReports(actor) : Promise.resolve([]),
     ]);
@@ -152,9 +159,9 @@ export default async function CasesPage({
 
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Cases ({cases.length}) — most urgent first
+          Cases ({page.rows.length}) — most urgent first
         </h2>
-        {cases.length === 0 ? (
+        {page.rows.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">No cases match.</p>
         ) : (
           <table className="mt-3 w-full border-collapse text-sm">
@@ -168,7 +175,7 @@ export default async function CasesPage({
               </tr>
             </thead>
             <tbody>
-              {cases.map((c) => (
+              {page.rows.map((c) => (
                 <tr key={c.id} className="border-b border-slate-200">
                   <td className="py-2 pr-3 font-mono">
                     <Link className="underline" href={`/cases/${c.id}`}>
@@ -186,7 +193,7 @@ export default async function CasesPage({
                   <td className="py-2 pr-3">{c.status.replaceAll("_", " ")}</td>
                   <td className="py-2 pr-3">
                     {c.slaDueAt.toISOString().slice(0, 10)}
-                    {isOverdue(c.slaDueAt, c.status) ? (
+                    {isOverdue(c.slaDueAt, c.status, new Date()) ? (
                       <span className="ml-2 rounded border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
                         Overdue
                       </span>
@@ -197,6 +204,29 @@ export default async function CasesPage({
             </tbody>
           </table>
         )}
+
+        {page.nextCursor ? (
+          <p className="mt-4 text-sm">
+            <Link
+              className="underline"
+              href={`/cases?${new URLSearchParams({
+                ...(filter.status ? { status: filter.status } : {}),
+                ...(filter.severity ? { severity: filter.severity } : {}),
+                ...(assignedTo ? { assignedTo } : {}),
+                cursor: page.nextCursor,
+              }).toString()}`}
+            >
+              Next page →
+            </Link>
+          </p>
+        ) : null}
+        {cursor ? (
+          <p className="mt-2 text-sm">
+            <Link className="text-slate-600 underline" href="/cases">
+              Back to the first page
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       {untriaged.length > 0 ? (

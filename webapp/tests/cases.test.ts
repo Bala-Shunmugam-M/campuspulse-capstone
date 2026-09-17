@@ -97,8 +97,8 @@ describe("listCases", () => {
   });
 
   it("returns only the actor's own institution", async () => {
-    const cases = await listCases(officer, {});
-    expect(cases.every((c) => c.institutionId === institutionId)).toBe(true);
+    const { rows } = await listCases(officer, {});
+    expect(rows.every((c) => c.institutionId === institutionId)).toBe(true);
   });
 });
 

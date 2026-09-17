@@ -5,6 +5,7 @@ import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac
 import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
+import { decodeCursor, pageSize, toPage, type Page } from "@/lib/pagination";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -26,7 +27,13 @@ export type CaseFilter = {
   severity?: Severity;
   /** An account id, "me" for the actor, or "unassigned". */
   assignedTo?: string;
+  /** Opaque keyset cursor from a previous page's nextCursor. */
+  cursor?: string;
+  limit?: number;
 };
+
+// "Overdue" is defined once, in @/lib/cases/sla, and shared by the queue, the
+// case page and the dashboards.
 
 export type CaseSummary = {
   id: string;
@@ -119,8 +126,25 @@ function assigneeWhere(actor: Actor, assignedTo: string | undefined) {
   return { assignedOfficerId: assignedTo === "me" ? actor.accountId : assignedTo };
 }
 
-export async function listCases(actor: Actor, filter: CaseFilter): Promise<CaseSummary[]> {
+/**
+ * A page of the case queue, most urgent first.
+ *
+ * Ordered by (sla_due_at, id) and walked by keyset rather than OFFSET: the queue
+ * reorders as SLAs pass and as cases are triaged, and offset paging over a
+ * moving list drops rows. The id is part of the order so that cases sharing a
+ * due date have one definite sequence rather than whatever the planner chose
+ * this time.
+ */
+export async function listCases(
+  actor: Actor,
+  filter: CaseFilter,
+): Promise<Page<CaseSummary>> {
   requireRole(actor, ["officer", "investigator", "admin"]);
+
+  const limit = pageSize(filter.limit);
+  const cursor = decodeCursor(filter.cursor);
+  const after = cursor ? new Date(cursor.key) : null;
+  const usable = after && !Number.isNaN(after.getTime()) ? { at: after, id: cursor!.id } : null;
 
   const rows = await prisma.case.findMany({
     where: {
@@ -131,21 +155,35 @@ export async function listCases(actor: Actor, filter: CaseFilter): Promise<CaseS
       ...assigneeWhere(actor, filter.assignedTo),
       // Sealed cases never appear in a queue; only a dpo reaches them by id.
       confidentiality: { not: "sealed" },
+      ...(usable
+        ? {
+            OR: [
+              { slaDueAt: { gt: usable.at } },
+              { slaDueAt: usable.at, id: { gt: usable.id } },
+            ],
+          }
+        : {}),
     },
-    orderBy: { slaDueAt: "asc" },
-    take: 200,
+    orderBy: [{ slaDueAt: "asc" }, { id: "asc" }],
+    // One more than asked for: the extra row is how we know a further page
+    // exists, without a COUNT that could disagree with this query.
+    take: limit + 1,
   });
 
-  return rows.map((c) => ({
-    id: c.id,
-    institutionId: c.institutionId,
-    caseNumber: c.caseNumber,
-    title: c.title,
-    severity: c.severity,
-    status: c.status,
-    slaDueAt: c.slaDueAt,
-    assignedOfficerId: c.assignedOfficerId,
-  }));
+  return toPage(
+    rows.map((c) => ({
+      id: c.id,
+      institutionId: c.institutionId,
+      caseNumber: c.caseNumber,
+      title: c.title,
+      severity: c.severity,
+      status: c.status,
+      slaDueAt: c.slaDueAt,
+      assignedOfficerId: c.assignedOfficerId,
+    })),
+    limit,
+    (row) => ({ key: row.slaDueAt.toISOString(), id: row.id }),
+  );
 }
 
 export async function getCase(actor: Actor, caseId: string) {
