@@ -192,7 +192,7 @@ trigger.
 
 ```bash
 npm test         # 237 tests across 31 files
-npm run verify   # 24 invariant checks against the live database
+npm run verify   # 32 invariant checks against the live database
 npm run build    # production build
 npx tsc --noEmit # type check
 npm run lint     # eslint

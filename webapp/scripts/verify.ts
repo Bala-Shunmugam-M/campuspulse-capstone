@@ -20,6 +20,36 @@ async function main() {
   const add = (name: string, expected: string, observed: number) =>
     checks.push({ name, expected, observed: String(observed), pass: observed === 0 });
 
+  // Every other check below counts rows that must NOT exist, so all of them
+  // pass on an empty database. That made a seed which silently did nothing
+  // indistinguishable from a healthy one: `prisma db seed` exits 0 without
+  // running anything here, because the seed is an npm script rather than a
+  // prisma.seed entry in package.json. So assert the database is populated at
+  // all before asserting its contents are consistent.
+  const SEEDED_TABLES = [
+    "campuspulse.institutions",
+    "campuspulse.users",
+    "campuspulse.categories",
+    "campuspulse.locations",
+    "compliance.user_accounts",
+    "compliance.role_assignments",
+    "compliance.policies",
+    "compliance.policy_versions",
+  ];
+
+  for (const table of SEEDED_TABLES) {
+    const [schema, name] = table.split(".");
+    const rows = await scalar(
+      prisma.$queryRaw`SELECT count(*) AS n FROM ${Prisma.raw(`"${schema}"."${name}"`)}`,
+    );
+    checks.push({
+      name: `${table} is populated`,
+      expected: "> 0 rows",
+      observed: String(rows),
+      pass: rows > 0,
+    });
+  }
+
   add(
     "anonymous reports carry no reporter",
     "0 rows",
