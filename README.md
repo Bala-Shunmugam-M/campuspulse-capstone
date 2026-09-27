@@ -90,7 +90,7 @@ institutions, each seeing only its own data.
 |---|---|
 | **Schema** | 16 tables, 9 ENUM types, 34 foreign keys, 68 indexes, 4 reporting views, 1 trigger |
 | **Synthetic dataset** | ~42,600 rows spanning 18 months across 3 institutions |
-| **Integrity audit** | 47 automated checks — population, tenant isolation, structure, lifecycle, business rules, statistical plausibility |
+| **Integrity audit** | 48 automated checks — population, tenant isolation, structure, lifecycle, business rules, statistical plausibility |
 | **Analytics suite** | 14 business questions answered with recursive CTEs, window functions, `FILTER` aggregates and statistical functions |
 | **Documentation** | Auto-generated data dictionary, ERD with Mermaid diagrams, setup guide |
 
@@ -114,7 +114,7 @@ rest of this README describes:
 | `team_members` | 78 | `attachments` | 950 |
 | `assets` | 2,499 | `feedback` | 565 |
 
-42,763 rows in total, and **47 of 47 integrity checks pass**. Regenerate exactly
+42,763 rows in total, and **48 of 48 integrity checks pass**. Regenerate exactly
 this dataset with:
 
 ```bash
@@ -130,7 +130,7 @@ than one, to make the spread visible:
 Schema build      16 tables · 4 views · 68 indexes · 9 ENUMs   6.5 s       3.2 s
 Data generation   42,763 rows generated in memory              0.3 s      0.83 s
 Data load         42,763 rows inserted via execute_values     13.1 s      14.5 s
-Integrity audit   47 of 47 checks passed                           ✓           ✓
+Integrity audit   48 of 48 checks passed                           ✓           ✓
 Analytics         14 queries                                  3.34 s       2.7 s
 ```
 
@@ -207,7 +207,7 @@ Or step through it, which is more instructive the first time:
 python db_config.py                 # connection smoke test
 python 01_Create_Schema.py          # build the schema
 python 02_Insert_Data.py            # generate + load synthetic data
-python 03_Verify_Data.py            # 47 integrity checks
+python 03_Verify_Data.py            # 48 integrity checks
 python 04_Analytics_Queries.py      # 14 business questions
 python 05_Export_Documentation.py   # regenerate the data dictionary
 ```
@@ -229,7 +229,7 @@ campuspulse-capstone/
 ├── 00_Run_All.py                Pipeline orchestrator (stages 0-4).
 ├── 01_Create_Schema.py          ⭐ Builds all 16 tables, ENUMs, indexes, views.
 ├── 02_Insert_Data.py            ⭐ Generates + bulk-loads the synthetic dataset.
-├── 03_Verify_Data.py            47 integrity / plausibility checks. CI-ready.
+├── 03_Verify_Data.py            48 integrity / plausibility checks. CI-ready.
 ├── 04_Analytics_Queries.py      14 analytical questions with SQL + commentary.
 ├── 05_Export_Documentation.py   Regenerates the data dictionary from pg_catalog.
 │
@@ -469,7 +469,7 @@ left half-created; the database is either fully loaded or untouched.
 
 ## 8. Integrity verification
 
-`03_Verify_Data.py` runs 47 checks and exits non-zero on any failure, so it can
+`03_Verify_Data.py` runs 48 checks and exits non-zero on any failure, so it can
 drop straight into CI. Critically, it queries **the database**, not the
 generator's in-memory state — so a bug in the generator cannot hide itself.
 
@@ -488,8 +488,8 @@ useless for analysis — if reports were uniformly distributed across all seven
 weekdays, no staffing analysis built on it would mean anything.
 
 ```
-  Checks run    : 47
-  Passed        : 47
+  Checks run    : 48
+  Passed        : 48
   Failed        : 0
 ```
 

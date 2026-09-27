@@ -107,6 +107,13 @@ CHECKS: list[Check] = [
           f"SELECT count(*) FROM {S}.status_history;", positive, "> 0"),
     Check("Population", "feedback loaded",
           f"SELECT count(*) FROM {S}.feedback;", positive, "> 0"),
+    # notifications needs its own population check. The only other check that
+    # touches the table ("read notifications carry a read timestamp") counts
+    # rows that must NOT exist, so it passes on an empty table -- meaning the
+    # notifications load could fail entirely and the audit would still report
+    # every check green.
+    Check("Population", "notifications loaded",
+          f"SELECT count(*) FROM {S}.notifications;", positive, "> 0"),
 
     # -------------------------------------------------- TENANT ISOLATION
     Check("Tenant isolation", "no report crosses tenants via location",

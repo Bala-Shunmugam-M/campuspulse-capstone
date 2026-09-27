@@ -181,7 +181,7 @@ stage does:
 ```bash
 python 01_Create_Schema.py        # 16 tables, 9 ENUMs, 68 indexes, 4 views
 python 02_Insert_Data.py          # ~42,000 rows of synthetic activity
-python 03_Verify_Data.py          # 47 integrity + plausibility checks
+python 03_Verify_Data.py          # 48 integrity + plausibility checks
 python 04_Analytics_Queries.py    # 14 business questions answered
 python 05_Export_Documentation.py # regenerates docs/DATA_DICTIONARY.md
 ```
