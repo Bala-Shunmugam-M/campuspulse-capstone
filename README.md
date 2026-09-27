@@ -7,8 +7,26 @@
   <img alt="PostgreSQL 17"  src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white">
   <img alt="Supabase"       src="https://img.shields.io/badge/Supabase-hosted-3FCF8E?logo=supabase&logoColor=white">
   <img alt="psycopg2"       src="https://img.shields.io/badge/driver-psycopg2-336791">
+  <img alt="Next.js 15"     src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white">
+  <img alt="TypeScript"     src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white">
+  <img alt="Prisma"         src="https://img.shields.io/badge/ORM-Prisma-2D3748?logo=prisma&logoColor=white">
   <img alt="License MIT"    src="https://img.shields.io/badge/License-MIT-yellow">
 </p>
+
+---
+
+> **This repository has two halves, sharing one database.**
+>
+> **The data platform** — everything documented below: the schema, the synthetic
+> data engine, the integrity audit and the analytics suite. It owns the
+> `campuspulse` schema.
+>
+> **The compliance web application** — a Next.js case-management system for
+> reporting incidents, working cases and publishing policy. It owns the
+> `compliance` schema and treats `campuspulse` as read-only. Documented in
+> **[`WEBAPP.md`](WEBAPP.md)** (what it does and how to run it) and
+> [`webapp/README.md`](webapp/README.md) (engineering detail), and summarised in
+> [§17](#17-the-compliance-web-application).
 
 ---
 
@@ -30,6 +48,7 @@
 14. [Limitations and honest caveats](#14-limitations-and-honest-caveats)
 15. [Possible extensions](#15-possible-extensions)
 16. [Documentation index](#16-documentation-index)
+17. [The compliance web application](#17-the-compliance-web-application)
 
 ---
 
@@ -723,6 +742,89 @@ Regenerate the data dictionary any time the schema changes:
 ```bash
 python 05_Export_Documentation.py
 ```
+
+---
+
+## 17. The compliance web application
+
+The second half of the repository, built on top of the database documented above.
+Where the Python project generates and audits incident data, the web application
+is the system people actually work in: reporting an incident, triaging it into a
+case, investigating it, deciding it, and publishing the policy it was judged
+against.
+
+Full documentation lives in **[`WEBAPP.md`](WEBAPP.md)** — what it does, who can
+do it, and how to run it. Engineering detail is in
+[`webapp/README.md`](webapp/README.md). This is the summary.
+
+### What it does
+
+| Area | Capability |
+|---|---|
+| **Intake** | Anonymous or attributed reports. An anonymous reporter gets a reference code plus an access secret shown exactly once, and can check status later without an account. |
+| **Cases** | Triage into a case, assignment, guarded status transitions, investigation notes at three visibility levels, evidence, outcomes and sanctions. |
+| **Confidentiality** | Sealed cases are excluded from the queue and refused to everyone but the data protection officer — including administrators. |
+| **Policy library** | Versioned policies with Markdown bodies, full-text search, and per-version acknowledgements. A published version is immutable in the database. |
+| **Dashboards** | Officer workload and SLA state; administrator intake trends, breach rate, outcome mix and policy coverage. |
+| **Audit** | Every mutation writes an audit row in the same transaction. The table is append-only, enforced by trigger. |
+| **Simulator** | `scripts/simulate.ts` generates realistic activity by driving the application over HTTP rather than inserting rows. |
+
+### The architectural rule worth knowing
+
+The two halves share one PostgreSQL database and divide it cleanly. The web
+application owns the `compliance` schema and references `campuspulse` by foreign
+key **without ever writing to it** — the tables it must not touch are mapped
+read-only, so the boundary is enforced by the code rather than by convention.
+
+The simulator follows the same discipline for a different reason. A script that
+inserts a case row can produce a case with no audit trail, no status history and
+a status no transition would have allowed — data that looks plausible and is
+structurally impossible. Driving real endpoints means generated activity is, by
+construction, activity the application could have produced.
+
+### Running it
+
+```bash
+cd webapp
+npm install
+docker compose up -d          # or any local PostgreSQL 17
+cp .env.example .env          # then fill in the two secrets
+npx prisma migrate deploy
+npm run seed
+npm run dev
+```
+
+Sign in with a seeded account — `officer1@northgate.edu` for the case queue,
+`dpo1@northgate.edu` for sealed cases and the audit log. All seeded accounts
+share one development passphrase, printed by `npm run seed` and stated in
+[`WEBAPP.md`](WEBAPP.md). They are development credentials and are not fit for
+any deployed environment.
+
+### Verification
+
+```bash
+npm test          # unit and integration tests
+npm run verify    # invariant checks against whatever the database holds
+```
+
+`npm run verify` is the counterpart to `03_Verify_Data.py`, and it exists for the
+same reason: it checks the database as it stands rather than what a test just
+created. On its first run after the case workflow was built it found a real
+defect — resolved cases carrying no recorded outcome — which is the kind of thing
+a passing test suite will happily hide.
+
+### Built in three phases
+
+| Phase | Delivers |
+|---|---|
+| **1 — Spine** | Authentication, roles, audit logging, anonymous intake, the case queue |
+| **2 — Workflow** | Transitions, assignment, parties, notes, outcomes and sanctions, evidence, notifications |
+| **3 — Knowledge** | Policy library, dashboards, campus directory, the traffic simulator |
+
+The plans for all three are committed under
+[`docs/superpowers/plans/`](docs/superpowers/plans), alongside the design
+specification they were derived from. Each records the decisions taken and the
+limitations accepted, including the ones still open.
 
 ---
 
