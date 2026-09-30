@@ -184,6 +184,7 @@ the analytics suite computes exactly this.
 # 1. Clone and enter
 git clone https://github.com/Bala-Shunmugam-M/campuspulse-capstone.git
 cd campuspulse-capstone
+git config core.hooksPath .githooks   # blocks accidental empty-file commits
 
 # 2. Virtual environment
 python -m venv .venv

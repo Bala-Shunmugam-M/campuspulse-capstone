@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Refuse to commit newly added empty files.
+#
+# Eleven zero-byte files with names like `r.role)` and `${response.status}` have
+# reached this repo (aee5cea, 821a74f): an unquoted redirection in a shell
+# command written as text creates them. No tracked file is legitimately empty,
+# so any new one is almost certainly that accident.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Deliberate empty file:  git commit --no-verify
+
+empty_blob=e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+bad=()
+
+# --raw -z emits "<meta>\0<path>\0" per file, so odd names survive intact.
+while IFS= read -r -d '' meta && IFS= read -r -d '' path; do
+  [[ $meta == *" $empty_blob "* ]] || continue
+  case ${path##*/} in .gitkeep|__init__.py) continue ;; esac
+  bad+=("$path")
+done < <(git diff --cached --diff-filter=A --raw --no-abbrev -z)
+
+((${#bad[@]} == 0)) && exit 0
+
+echo "pre-commit: refusing to add empty file(s), likely a shell accident:" >&2
+printf '  %q\n' "${bad[@]}" >&2
+echo "Unstage with: git rm --cached -- <file>   (or commit with --no-verify if intended)" >&2
+exit 1
