@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../src/lib/db";
 import { submitAnonymousReport, submitReport } from "../src/server/reports";
 import type { Actor } from "../src/lib/auth/rbac";
+import { RateLimitedError } from "../src/lib/errors";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, clientKey: randomUUID(), userAgent: "vitest", at: new Date() });
 const input = {
   title: "Exam paper shared in a group chat",
   description: "A photograph of the question paper circulated the evening before the exam.",
@@ -68,6 +69,16 @@ describe("submitAnonymousReport", () => {
 
     expect(audit.actorUserAccountId).toBeNull();
     expect(audit.actorLabel).toBe("anonymous");
+  });
+
+  it("refuses the thirty-first submission from one connection within the hour", async () => {
+    const clientKey = randomUUID();
+    for (let i = 0; i < 30; i++) {
+      await submitAnonymousReport(institutionId, input, { ...meta(), clientKey });
+    }
+    await expect(submitAnonymousReport(institutionId, input, { ...meta(), clientKey })).rejects.toThrow(
+      RateLimitedError,
+    );
   });
 });
 

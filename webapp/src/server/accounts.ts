@@ -5,10 +5,20 @@ import { withAudit } from "@/lib/audit/withAudit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AccountLockedError, InvalidCredentialsError } from "@/lib/errors";
 import { requestNow } from "@/lib/clock";
+import { clientKeyFrom } from "@/lib/rateLimit";
 
 export type RequestMeta = {
   requestId: string;
   ipHash: string | null;
+  /**
+   * Peppered HMAC of the client IP, used only as a rate-limit key and never
+   * persisted. Kept apart from ipHash, which is written to reports and audit
+   * rows: storing a stable IP hash beside an anonymous report would let anyone
+   * holding the pepper test a suspect's address against it, so turning that on
+   * is a decision for the data protection officer, not a side effect of
+   * rate limiting.
+   */
+  clientKey?: string | null;
   userAgent: string | null;
   /**
    * When this request is happening. Carried explicitly rather than read from
@@ -116,13 +126,15 @@ export async function authenticate(
 }
 
 export function newRequestMeta(headers: Headers): RequestMeta {
+  // Every server action starts here, so this is the one place a request
+  // decides when it is happening. Outside simulation mode it is the real
+  // clock and the header is never read.
+  const at = requestNow(headers);
   return {
     requestId: randomUUID(),
     ipHash: null,
+    clientKey: clientKeyFrom(headers, at),
     userAgent: headers.get("user-agent"),
-    // Every server action starts here, so this is the one place a request
-    // decides when it is happening. Outside simulation mode it is the real
-    // clock and the header is never read.
-    at: requestNow(headers),
+    at,
   };
 }

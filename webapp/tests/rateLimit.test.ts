@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../src/lib/db";
-import { assertRateLimit, resetRateLimits, sweepRateLimits } from "../src/lib/rateLimit";
+import { assertRateLimit, clientKeyFrom, resetRateLimits, sweepRateLimits } from "../src/lib/rateLimit";
 
 const key = () => `test:${randomUUID()}`;
 
@@ -70,5 +70,32 @@ describe("sweepRateLimits", () => {
     expect(removed).toBeGreaterThanOrEqual(1);
     expect(await prisma.rateLimitBucket.findUnique({ where: { key: stale } })).toBeNull();
     expect(await prisma.rateLimitBucket.findUnique({ where: { key: fresh } })).not.toBeNull();
+  });
+});
+
+describe("clientKeyFrom", () => {
+  const at = new Date("2026-10-01T12:00:00Z");
+  const withXff = (xff: string) => new Headers({ "x-forwarded-for": xff });
+
+  it("keys on the rightmost hop, so a forged leftmost hop changes nothing", () => {
+    process.env.IP_HASH_PEPPER = "test-pepper";
+    const real = clientKeyFrom(withXff("203.0.113.7"), at);
+    expect(clientKeyFrom(withXff("198.51.100.99, 203.0.113.7"), at)).toBe(real);
+    expect(clientKeyFrom(withXff("203.0.113.8"), at)).not.toBe(real);
+    expect(real).toMatch(/^[0-9a-f]{64}$/);
+    expect(real).not.toContain("203.0.113.7");
+  });
+
+  it("changes every UTC day, so a stored key cannot be linked across days", () => {
+    process.env.IP_HASH_PEPPER = "test-pepper";
+    const nextDay = new Date("2026-10-02T00:00:01Z");
+    expect(clientKeyFrom(withXff("203.0.113.7"), at)).not.toBe(clientKeyFrom(withXff("203.0.113.7"), nextDay));
+  });
+
+  it("is null without a pepper or an address, so callers fall back to a shared bucket", () => {
+    process.env.IP_HASH_PEPPER = "test-pepper";
+    expect(clientKeyFrom(new Headers(), at)).toBeNull();
+    delete process.env.IP_HASH_PEPPER;
+    expect(clientKeyFrom(withXff("203.0.113.7"), at)).toBeNull();
   });
 });

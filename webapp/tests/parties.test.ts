@@ -6,7 +6,7 @@ import { triageReport } from "../src/server/cases";
 import { addParty, listParties, removeParty } from "../src/server/parties";
 import type { Actor } from "../src/lib/auth/rbac";
 
-const meta = () => ({ requestId: randomUUID(), ipHash: null, userAgent: "vitest", at: new Date() });
+const meta = () => ({ requestId: randomUUID(), ipHash: null, clientKey: randomUUID(), userAgent: "vitest", at: new Date() });
 
 let institutionId: string;
 let admin: Actor;

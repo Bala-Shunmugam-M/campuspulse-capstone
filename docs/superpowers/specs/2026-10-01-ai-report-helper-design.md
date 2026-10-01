@@ -150,3 +150,24 @@ AI-assisted; category/location fields for anonymous reporters; streaming.
 `webapp/README.md` §4 notes `draftReport` beside the rate-limited services and
 corrects the anonymous-submission claim; `docs/APP_GUIDE.md` §7 finding 2 is
 marked fixed.
+
+## Changes made after code and security review (2026-10-01)
+
+- **Rate-limit key.** `newRequestMeta` always set `ipHash: null`, so `meta.ipHash`
+  would have made every limit one site-wide bucket. Limits now key on
+  `meta.clientKey` = HMAC-SHA256(`IP_HASH_PEPPER`, UTC day + rightmost
+  X-Forwarded-For hop), from `clientKeyFrom` in `src/lib/rateLimit.ts`. `ipHash`
+  stays null: persisting an IP hash beside anonymous reports is left to the DPO.
+- **Forgery.** The rightmost hop is the one a proxy appends; a client reaching
+  Next directly can still choose its key, so drafting also has a site-wide cap
+  of 300 per hour (`ai-draft:global`). Deploy behind a proxy that sets the header.
+- **Retention.** Buckets are swept opportunistically (about 1 in 50 limiter
+  calls) after an hour, and the day in the HMAC stops linking across days.
+- **Submission limit** raised from 10 to 30 per hour: campus NAT puts many
+  reporters behind one address.
+- **Minimum helper text** raised from 20 to 40 characters, matching the
+  description's own minimum so every draft can be submitted.
+- **Closing-tag stripping** repeats until stable (a single pass could be
+  reassembled). Model-call failures log error type and status only.
+- **Form.** A second draft no longer drops the hint from fields an earlier draft
+  filled, and the helper never overwrites a description the user typed.

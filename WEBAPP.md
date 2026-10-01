@@ -112,6 +112,17 @@ Reports carry a title, description, self-assessed severity, and optionally a
 category, location and when it happened. Full-text search over title and
 description is maintained by the database itself.
 
+**AI drafting helper.** When `ANTHROPIC_API_KEY` is set, `/report` offers
+*Describe what happened*: the reporter writes in their own words, ticks a consent
+box, and Claude drafts the title, severity, date and — for signed-in users —
+category and location, which they check before submitting. Only the typed text
+(and, for signed-in users, the institution's category and location names) is
+sent; never an IP address, account or email. The description stays the
+reporter's own words — a report is evidence, so the AI classifies it and never
+rewrites it. Nothing is stored until the reporter submits. Drafting is limited
+to 5 per 15 minutes per connection and 300 an hour site-wide; anonymous
+submission to 30 an hour per connection.
+
 ### Cases
 
 An officer triages a report into a case. The case gets a per-institution,

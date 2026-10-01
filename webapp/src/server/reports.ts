@@ -72,6 +72,10 @@ export async function submitAnonymousReport(
   input: ReportInput,
   meta: RequestMeta,
 ): Promise<{ referenceCode: string; accessSecret: string }> {
+  // Thirty, not ten: a campus routes many students through one NAT address, and
+  // a limit that blocks the third person in a residence hall to report the same
+  // incident silences exactly the people this form exists for.
+  await assertRateLimit(`submit:${meta.clientKey ?? "unknown"}`, 30, 60 * 60_000);
   const parsed = reportInputSchema.parse(input);
   const referenceCode = generateReferenceCode();
   const accessSecret = generateAccessSecret();

@@ -9,6 +9,7 @@ import {
   withSimulatedTime,
 } from "../src/lib/clock";
 import { newRequestMeta } from "../src/server/accounts";
+import { resetRateLimits } from "../src/lib/rateLimit";
 import { submitAnonymousReport } from "../src/server/reports";
 import { triageReport } from "../src/server/cases";
 import type { Actor } from "../src/lib/auth/rbac";
@@ -34,6 +35,9 @@ let institutionId: string;
 let officer: Actor;
 
 beforeAll(async () => {
+  // newRequestMeta carries no ipHash, so these submissions share the "unknown"
+  // bucket; start it empty so repeated runs within the hour do not exhaust it.
+  await resetRateLimits();
   const inst = await prisma.institution.findFirstOrThrow({ where: { code: "NGU" } });
   institutionId = inst.id;
   const account = await prisma.userAccount.findFirstOrThrow({
