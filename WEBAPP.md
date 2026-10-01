@@ -290,7 +290,8 @@ shut, is in [`webapp/README.md`](webapp/README.md) §11.
 
 ```bash
 cd webapp
-npm test         # 237 tests across 31 files
+# Tests refuse any database that is not localhost; point them at local Postgres:
+DATABASE_URL='postgresql://compliance:localdev@localhost:5433/compliance?schema=compliance' npm test   # 258 tests across 32 files
 npm run verify   # 32 invariant checks against the live database
 npm run build
 npx tsc --noEmit

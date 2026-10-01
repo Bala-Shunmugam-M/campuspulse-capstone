@@ -490,7 +490,7 @@ SIMULATION_MODE=1 npm run simulate -- --seed 7 --anchor 2026-09-17 --days 90 --r
 Checks:
 
 ```bash
-npm test          # 237 unit and integration tests
+DATABASE_URL='postgresql://compliance:localdev@localhost:5433/compliance?schema=compliance' npm test   # 258 tests; refuses any non-localhost database
 npm run verify    # 32 invariants against whatever the database holds now
 npx tsc --noEmit && npm run lint && npm run build
 ```
