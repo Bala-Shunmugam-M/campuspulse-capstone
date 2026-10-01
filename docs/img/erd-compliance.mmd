@@ -1,0 +1,215 @@
+%% ER diagram of the web application's database: the compliance schema it owns,
+%% plus the four campuspulse tables it reads. Solid lines are enforced foreign
+%% keys; dashed lines are logical links held as bare UUID columns (no FK).
+%% Render: mmdc -i erd-compliance.mmd -o erd-compliance.png -w 2600 -b white
+erDiagram
+    %% ---------------- campuspulse (read-only to the web app) ----------------
+    institutions {
+        uuid id PK
+        text code UK
+        text name
+        text domain
+    }
+    users {
+        uuid id PK
+        uuid institution_id FK
+        text full_name
+        text email
+        text department
+    }
+    locations {
+        uuid id PK
+        uuid institution_id FK
+        uuid parent_id FK
+        text name
+    }
+    categories {
+        uuid id PK
+        uuid institution_id FK
+        uuid parent_id FK
+        text name
+        int sla_hours
+    }
+    institutions ||--o{ users : "has people"
+    institutions ||--o{ locations : "has places"
+    institutions ||--o{ categories : "has categories"
+
+    %% ---------------- identity and access ----------------
+    user_accounts {
+        uuid id PK
+        uuid user_id FK "UK, one login per person"
+        uuid institution_id
+        text email
+        text password_hash
+        int failed_login_count
+        timestamptz locked_until
+    }
+    role_assignments {
+        uuid id PK
+        uuid user_account_id FK
+        compliance_role role "reporter officer investigator admin dpo"
+        uuid granted_by FK
+        timestamptz revoked_at
+    }
+    sessions {
+        uuid id PK
+        uuid user_account_id FK
+        timestamptz expires_at
+        timestamptz revoked_at
+    }
+    users ||--o| user_accounts : "signs in as"
+    user_accounts ||--o{ role_assignments : "holds"
+    user_accounts |o--o{ role_assignments : "granted"
+    user_accounts ||--o{ sessions : "opens"
+
+    %% ---------------- intake ----------------
+    reports {
+        uuid id PK
+        text reference_code UK
+        text access_secret_hash "anonymous follow-up"
+        uuid reporter_user_id FK "null when anonymous"
+        bool is_anonymous
+        uuid category_id
+        uuid location_id
+        severity severity_self_reported
+        report_status status
+    }
+    user_accounts |o--o{ reports : "files"
+    categories |o..o{ reports : "classified as"
+    locations |o..o{ reports : "happened at"
+
+    %% ---------------- case work ----------------
+    cases {
+        uuid id PK
+        text case_number "UK per institution"
+        severity severity
+        case_status status
+        uuid assigned_officer_id FK
+        timestamptz sla_due_at
+        confidentiality confidentiality "standard restricted sealed"
+    }
+    case_reports {
+        uuid case_id PK,FK
+        uuid report_id PK
+        bool is_primary
+    }
+    case_status_history {
+        uuid id PK
+        uuid case_id FK
+        case_status from_status
+        case_status to_status
+        uuid changed_by
+    }
+    case_number_counters {
+        uuid institution_id PK
+        int year PK
+        int next_value
+    }
+    case_parties {
+        uuid id PK
+        uuid case_id FK
+        uuid user_account_id FK "or external_name, or anonymous"
+        party_role party_role
+    }
+    case_notes {
+        uuid id PK
+        uuid case_id FK
+        uuid author_id FK
+        note_visibility visibility
+    }
+    user_accounts |o--o{ cases : "assigned officer"
+    cases ||--|{ case_reports : "groups"
+    reports ||..o{ case_reports : "triaged into"
+    cases ||--o{ case_status_history : "moved through"
+    user_accounts |o..o{ case_status_history : "changed by"
+    institutions ||..o{ case_number_counters : "numbers cases"
+    cases ||--o{ case_parties : "involves"
+    user_accounts |o--o{ case_parties : "is party"
+    cases ||--o{ case_notes : "annotated by"
+    user_accounts ||--o{ case_notes : "writes"
+    categories |o..o{ cases : "classified as"
+
+    %% ---------------- decisions ----------------
+    outcomes {
+        uuid id PK
+        uuid case_id FK "UK, one per case"
+        finding finding
+        uuid decided_by FK
+    }
+    sanctions {
+        uuid id PK
+        uuid outcome_id FK
+        uuid subject_party_id FK
+        sanction_type sanction_type
+    }
+    cases ||--o| outcomes : "decided by"
+    user_accounts ||--o{ outcomes : "decides"
+    outcomes ||--o{ sanctions : "imposes"
+    case_parties ||--o{ sanctions : "applies to"
+
+    %% ---------------- evidence and messaging ----------------
+    evidence_files {
+        uuid id PK
+        uuid case_id FK
+        uuid report_id FK
+        uuid uploaded_by FK
+        text storage_key UK
+        char sha256
+        scan_status scan_status
+    }
+    notifications {
+        uuid id PK
+        uuid recipient_id FK
+        uuid case_id FK
+        text subject
+        bool is_read
+    }
+    cases |o--o{ evidence_files : "holds"
+    reports |o--o{ evidence_files : "attached to"
+    user_accounts |o--o{ evidence_files : "uploads"
+    user_accounts ||--o{ notifications : "receives"
+    cases |o--o{ notifications : "about"
+
+    %% ---------------- policy library ----------------
+    policies {
+        uuid id PK
+        text code "UK per institution"
+        text title
+        bool is_active
+    }
+    policy_versions {
+        uuid id PK
+        uuid policy_id FK
+        int version_no
+        date effective_from
+        date effective_to
+        uuid published_by FK
+    }
+    policy_acknowledgements {
+        uuid id PK
+        uuid policy_version_id FK
+        uuid user_account_id FK
+        timestamptz acknowledged_at
+    }
+    policies ||--|{ policy_versions : "versioned as"
+    user_accounts |o--o{ policy_versions : "publishes"
+    policy_versions ||--o{ policy_acknowledgements : "acknowledged in"
+    user_accounts ||--o{ policy_acknowledgements : "acknowledges"
+
+    %% ---------------- infrastructure ----------------
+    audit_events {
+        bigint id PK
+        uuid institution_id
+        uuid actor_user_account_id
+        text action
+        text entity_type
+        uuid entity_id
+        jsonb before
+        jsonb after
+    }
+    rate_limit_buckets {
+        text key PK
+        int count
+        timestamptz window_start
+    }
+    user_accounts |o..o{ audit_events : "acts in"
