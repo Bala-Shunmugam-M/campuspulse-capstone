@@ -117,7 +117,7 @@ export function ReportForm({
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)}
                    className="mt-1" />
             <span>
-              I agree this text will be sent to Anthropic&apos;s Claude AI to draft the form below.
+              I agree this text will be sent to Hugging Face and its AI provider (Cerebras) to draft the form below.
               Nothing is saved until I submit.
             </span>
           </label>

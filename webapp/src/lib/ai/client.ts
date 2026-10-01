@@ -1,24 +1,31 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { InferenceClient } from "@huggingface/inference";
 
 /**
- * Null rather than throwing when no key is configured: the AI helper is
+ * Null rather than throwing when no token is configured: the AI helper is
  * optional, and every caller has to cope with "not available" anyway (timeouts,
- * refusals), so a missing key is just the earliest form of that.
- *
- * The SDK reads ANTHROPIC_API_KEY itself; it is checked here only so an unset
- * or empty key yields null instead of a client that fails on first use.
+ * refusals), so a missing token is just the earliest form of that.
  */
-export function getAiClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  // One retry, short timeout: a person is waiting on the form, and the form
+export function getAiClient(): InferenceClient | null {
+  const token = process.env.HF_TOKEN;
+  if (!token) return null;
+  // No retry on a cold model: a person is waiting on the form, and the form
   // works without the draft.
-  return new Anthropic({ timeout: 20_000, maxRetries: 1 });
+  return new InferenceClient(token, { retry_on_error: false });
 }
 
+/**
+ * Model and provider are chosen as a pair: structured output support varies by
+ * provider, and Qwen3-32B on Cerebras is the pairing Hugging Face documents for
+ * JSON-schema output. Change both together.
+ */
 export function aiModel(): string {
-  return process.env.AI_MODEL || "claude-opus-5-5";
+  return process.env.HF_MODEL || "Qwen/Qwen3-32B";
+}
+
+export function aiProvider(): string {
+  return process.env.HF_PROVIDER || "cerebras";
 }
 
 export function isAiEnabled(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return Boolean(process.env.HF_TOKEN);
 }

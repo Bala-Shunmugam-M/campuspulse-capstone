@@ -1,10 +1,7 @@
-import type {
-  BetaMessage,
-  MessageCreateParamsNonStreaming,
-} from "@anthropic-ai/sdk/resources/beta/messages/messages";
+import type { InferenceClient } from "@huggingface/inference";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { aiModel, getAiClient } from "@/lib/ai/client";
+import { aiModel, aiProvider, getAiClient } from "@/lib/ai/client";
 import { assertRateLimit } from "@/lib/rateLimit";
 import { AiUnavailableError } from "@/lib/errors";
 import type { RequestMeta } from "@/server/accounts";
@@ -24,19 +21,13 @@ export type ReportDraft = {
 };
 
 /**
- * The slice of the SDK client this service uses. Narrow on purpose so tests can
- * inject a plain object instead of mocking the SDK module; the real Anthropic
- * client satisfies it structurally.
+ * The slice of the Hugging Face client this service uses. Narrow on purpose so
+ * tests can inject a plain object instead of mocking the SDK module; the real
+ * InferenceClient satisfies it structurally.
  */
-export type DraftClient = {
-  beta: {
-    messages: {
-      create(
-        params: MessageCreateParamsNonStreaming,
-      ): Promise<Pick<BetaMessage, "stop_reason" | "content">>;
-    };
-  };
-};
+export type DraftClient = Pick<InferenceClient, "chatCompletion">;
+type Provider = Parameters<DraftClient["chatCompletion"]>[0]["provider"];
+type Completion = Awaited<ReturnType<DraftClient["chatCompletion"]>>;
 
 type Option = { id: string; name: string };
 
@@ -96,7 +87,13 @@ function withoutClosingTag(text: string): string {
 export async function draftReport(
   input: { text: string; institutionId: string | null },
   meta: RequestMeta,
-  deps: { client: DraftClient | null; model: string } = { client: getAiClient(), model: aiModel() },
+  deps: { client: DraftClient | null; model: string; provider?: Provider } = {
+    client: getAiClient(),
+    model: aiModel(),
+    // An unknown name from HF_PROVIDER is rejected by the router and surfaces
+    // as an unavailable draft, not a crash.
+    provider: aiProvider() as Provider,
+  },
 ): Promise<ReportDraft> {
   await assertRateLimit(`ai-draft:${meta.clientKey ?? "unknown"}`, 5, 15 * 60_000);
   // Site-wide ceiling on paid model calls. The per-client key can be dodged by
@@ -126,44 +123,50 @@ export async function draftReport(
   const list = (label: string, options: Option[]) =>
     options.length ? `${label}:\n${options.map((o) => `- ${o.name}`).join("\n")}` : `${label}: none`;
 
-  let response: Pick<BetaMessage, "stop_reason" | "content">;
+  let response: Pick<Completion, "choices">;
   try {
-    response = await deps.client.beta.messages.create({
-      model: deps.model,
-      max_tokens: 1024,
-      // Thinking is omitted, not disabled: Opus 5.5 rejects `disabled`.
-      output_config: {
-        effort: "low",
-        format: {
+    response = await deps.client.chatCompletion(
+      {
+        model: deps.model,
+        provider: deps.provider,
+        max_tokens: 1024,
+        // Classification, not prose: the same text should draft the same form.
+        temperature: 0,
+        response_format: {
           type: "json_schema",
-          schema: {
-            type: "object",
-            properties: {
-              title: { anyOf: [{ type: "string" }, { type: "null" }] },
-              severity: { anyOf: [{ type: "string", enum: [...SEVERITIES] }, { type: "null" }] },
-              occurred_on: { anyOf: [{ type: "string", format: "date" }, { type: "null" }] },
-              category: nameField(categories),
-              location: nameField(locations),
+          json_schema: {
+            name: "report_draft",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                title: { anyOf: [{ type: "string" }, { type: "null" }] },
+                severity: { anyOf: [{ type: "string", enum: [...SEVERITIES] }, { type: "null" }] },
+                occurred_on: { anyOf: [{ type: "string" }, { type: "null" }] },
+                category: nameField(categories),
+                location: nameField(locations),
+              },
+              required: ["title", "severity", "occurred_on", "category", "location"],
+              additionalProperties: false,
             },
-            required: ["title", "severity", "occurred_on", "category", "location"],
-            additionalProperties: false,
           },
         },
+        messages: [
+          {
+            role: "system",
+            content: `${SYSTEM}\n\nToday is ${today}.\n\n${list("Categories", categories)}\n\n${list("Locations", locations)}`,
+          },
+          {
+            role: "user",
+            // The closing tag is removed from the reporter's text so it cannot end
+            // the data block early and smuggle in instructions after it.
+            content: `<report_text>\n${withoutClosingTag(text)}\n</report_text>`,
+          },
+        ],
       },
-      // If the requested model declines, the server retries on its default
-      // fallback rather than returning a refusal to someone filing a report.
-      fallbacks: "default",
-      betas: ["server-side-fallback-2026-07-01"],
-      system: `${SYSTEM}\n\nToday is ${today}.\n\n${list("Categories", categories)}\n\n${list("Locations", locations)}`,
-      messages: [
-        {
-          role: "user",
-          // The closing tag is removed from the reporter's text so it cannot end
-          // the data block early and smuggle in instructions after it.
-          content: `<report_text>\n${withoutClosingTag(text)}\n</report_text>`,
-        },
-      ],
-    });
+      // The client has no timeout of its own; a person is waiting on the form.
+      { signal: AbortSignal.timeout(20_000) },
+    );
   } catch (err) {
     // Timeouts, network and API errors alike: the reporter fills the form in.
     // Logged by type and status only -- never the reporter's text -- so a bad
@@ -173,14 +176,15 @@ export async function draftReport(
     throw new AiUnavailableError("The AI helper did not respond.");
   }
 
-  // Anything but a clean finish (refusal, max_tokens, ...) is not a usable draft.
-  if (response.stop_reason !== "end_turn") {
+  // Anything but a clean finish (length, content_filter, ...) is not a usable draft.
+  const choice = response.choices[0];
+  if (!choice || choice.finish_reason !== "stop") {
     throw new AiUnavailableError("The AI helper could not draft this report.");
   }
 
-  const raw = response.content
-    .map((block) => (block.type === "text" ? block.text : ""))
-    .join("");
+  // Qwen3 may prefix its answer with a <think> block even under a JSON schema;
+  // only what follows it is the draft.
+  const raw = (choice.message.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/, "");
   let out: z.infer<typeof modelOutputSchema>;
   try {
     out = modelOutputSchema.parse(JSON.parse(raw));

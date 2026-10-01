@@ -171,3 +171,22 @@ marked fixed.
   reassembled). Model-call failures log error type and status only.
 - **Form.** A second draft no longer drops the hint from fields an earlier draft
   filled, and the helper never overwrites a description the user typed.
+
+## Provider switch to Hugging Face (2026-10-01)
+
+The owner has no Anthropic API key, so the model call moved from
+`@anthropic-ai/sdk` to `@huggingface/inference` (`InferenceClient.chatCompletion`).
+Everything else above stands.
+
+- Token `HF_TOKEN`; model `HF_MODEL` (default `Qwen/Qwen3-32B`) and provider
+  `HF_PROVIDER` (default `cerebras`) — the pairing Hugging Face documents for
+  JSON-schema output; change them together.
+- `response_format: { type: "json_schema", json_schema: { name, strict: true,
+  schema } }`, `temperature: 0`, `max_tokens: 1024`, 20 s abort signal, no retry.
+- The system prompt is a `system` message; the reporter's text stays the only
+  content of the `user` message, inside `<report_text>`.
+- `finish_reason` other than `stop` (e.g. `length`, `content_filter`) is
+  unavailable, replacing the `stop_reason` / refusal-fallback handling. A
+  leading `<think>` block from Qwen3 is ignored before parsing.
+- Consent wording names Hugging Face and its provider (Cerebras), since that is
+  where the reporter's text now goes.

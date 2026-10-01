@@ -112,9 +112,10 @@ Reports carry a title, description, self-assessed severity, and optionally a
 category, location and when it happened. Full-text search over title and
 description is maintained by the database itself.
 
-**AI drafting helper.** When `ANTHROPIC_API_KEY` is set, `/report` offers
+**AI drafting helper.** When `HF_TOKEN` (a Hugging Face access token) is set, `/report` offers
 *Describe what happened*: the reporter writes in their own words, ticks a consent
-box, and Claude drafts the title, severity, date and — for signed-in users —
+box, and an open model (Qwen3-32B, run by Cerebras through Hugging Face Inference
+Providers) drafts the title, severity, date and — for signed-in users —
 category and location, which they check before submitting. Only the typed text
 (and, for signed-in users, the institution's category and location names) is
 sent; never an IP address, account or email. The description stays the
