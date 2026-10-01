@@ -16,6 +16,9 @@ export const CATEGORIES = [
   { name: "Substance policy", slaHours: 72 },
   { name: "Residence conduct", slaHours: 168 },
   { name: "Data protection", slaHours: 24 },
+  // Unsecured rooms, intruders, unsafe conditions. Without it the AI drafting
+  // helper filed an unlocked lab with a stranger inside as "Residence conduct".
+  { name: "Safety & security", slaHours: 24 },
 ] as const;
 
 /**
