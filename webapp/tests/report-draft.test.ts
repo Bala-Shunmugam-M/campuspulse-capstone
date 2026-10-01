@@ -199,4 +199,14 @@ describe("draftReport", () => {
     const draft = await draftReport({ text: TEXT, institutionId: null }, meta(), deps);
     expect(draft.title).toBe("Chemistry lab left unlocked overnight");
   });
+
+  it("turns Qwen3 reasoning off, and leaves other models alone", async () => {
+    const qwen = fake(answer());
+    await draftReport({ text: TEXT, institutionId: null }, meta(), { ...qwen.deps, model: "Qwen/Qwen3-32B" });
+    expect(String(qwen.calls[0].messages[0].content).endsWith("/no_think")).toBe(true);
+
+    const other = fake(answer());
+    await draftReport({ text: TEXT, institutionId: null }, meta(), other.deps);
+    expect(other.calls[0].messages[0].content).not.toContain("/no_think");
+  });
 });

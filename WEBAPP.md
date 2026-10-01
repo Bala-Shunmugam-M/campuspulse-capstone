@@ -114,7 +114,7 @@ description is maintained by the database itself.
 
 **AI drafting helper.** When `HF_TOKEN` (a Hugging Face access token) is set, `/report` offers
 *Describe what happened*: the reporter writes in their own words, ticks a consent
-box, and an open model (Qwen3-32B, run by Cerebras through Hugging Face Inference
+box, and an open model (Qwen3-32B, run by DeepInfra through Hugging Face Inference
 Providers) drafts the title, severity, date and — for signed-in users —
 category and location, which they check before submitting. Only the typed text
 (and, for signed-in users, the institution's category and location names) is

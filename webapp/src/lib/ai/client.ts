@@ -15,15 +15,15 @@ export function getAiClient(): InferenceClient | null {
 
 /**
  * Model and provider are chosen as a pair: structured output support varies by
- * provider, and Qwen3-32B on Cerebras is the pairing Hugging Face documents for
- * JSON-schema output. Change both together.
+ * provider. Qwen3-32B on DeepInfra was verified live (2026-10-01) to honour a
+ * strict JSON schema; Cerebras, nscale and featherless-ai did not. Change both together.
  */
 export function aiModel(): string {
   return process.env.HF_MODEL || "Qwen/Qwen3-32B";
 }
 
 export function aiProvider(): string {
-  return process.env.HF_PROVIDER || "cerebras";
+  return process.env.HF_PROVIDER || "deepinfra";
 }
 
 export function isAiEnabled(): boolean {

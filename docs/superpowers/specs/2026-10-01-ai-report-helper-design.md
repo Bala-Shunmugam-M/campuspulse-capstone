@@ -190,3 +190,10 @@ Everything else above stands.
   leading `<think>` block from Qwen3 is ignored before parsing.
 - Consent wording names Hugging Face and its provider (Cerebras), since that is
   where the reporter's text now goes.
+
+**Provider correction (live test, 2026-10-01).** Cerebras no longer serves
+`Qwen/Qwen3-32B` (`InferenceClientInputError`: no provider information). Of the
+providers live for it, only **DeepInfra** returned schema-valid JSON with
+`finish_reason: stop` (≈6 s); nscale hit `length` without JSON and
+featherless-ai timed out at 30 s. Default `HF_PROVIDER` is now `deepinfra`, and
+the consent wording names DeepInfra.

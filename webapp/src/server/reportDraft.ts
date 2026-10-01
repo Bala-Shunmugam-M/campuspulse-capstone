@@ -154,7 +154,12 @@ export async function draftReport(
         messages: [
           {
             role: "system",
-            content: `${SYSTEM}\n\nToday is ${today}.\n\n${list("Categories", categories)}\n\n${list("Locations", locations)}`,
+            // Qwen3 reasons at length unless told not to: measured live, 17 s and
+            // 358 tokens with reasoning against 3 s and 38 without, and the
+            // reasoned answer gave a timestamp where a date was asked for.
+            content:
+              `${SYSTEM}\n\nToday is ${today}.\n\n${list("Categories", categories)}\n\n${list("Locations", locations)}` +
+              (/qwen3/i.test(deps.model) ? "\n\n/no_think" : ""),
           },
           {
             role: "user",
