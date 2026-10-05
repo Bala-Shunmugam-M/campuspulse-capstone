@@ -161,5 +161,32 @@ updates.`,
   },
 ] as const;
 
-/** Password for every seeded account. Development only; all accounts must change it. */
+/**
+ * The password seeding and resetting use. The default below is public -- this
+ * file is on GitHub -- so it is accepted only against a database on this
+ * machine. A hosted database must be given SEED_PASSWORD, or anyone who reads
+ * the repository can sign in to it as an administrator.
+ */
+export function seedPassword(): string {
+  if (process.env.SEED_PASSWORD) return process.env.SEED_PASSWORD;
+  if (!process.env.DATABASE_URL) {
+    try {
+      process.loadEnvFile(".env");
+    } catch {
+      // No .env: the host check below refuses.
+    }
+  }
+  let host = "";
+  try {
+    host = new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    // Unparseable URL: refused below.
+  }
+  if (["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) return SEED_PASSWORD;
+  throw new Error(
+    `Set SEED_PASSWORD: the default demo password is public and is only allowed against localhost, not "${host || "(unset)"}".`,
+  );
+}
+
+/** Password for every seeded account on a local database. Development only. */
 export const SEED_PASSWORD = "capstone demo passphrase";

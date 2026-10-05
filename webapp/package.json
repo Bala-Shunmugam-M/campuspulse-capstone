@@ -10,7 +10,9 @@
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "verify": "tsx scripts/verify.ts",
-    "simulate": "tsx scripts/simulate.ts"
+    "simulate": "tsx scripts/simulate.ts",
+    "postinstall": "prisma generate",
+    "reset-demo-passwords": "tsx scripts/reset-demo-passwords.ts"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.30",

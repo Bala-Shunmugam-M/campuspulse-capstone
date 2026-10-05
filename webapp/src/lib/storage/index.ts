@@ -16,4 +16,13 @@ export function storage(): StorageDriver {
   return driver;
 }
 
+/**
+ * Serverless hosts (Vercel) keep no local disk between requests, so the local
+ * driver would accept a file and lose it. EVIDENCE_UPLOADS=off refuses uploads
+ * there instead; existing evidence rows still list.
+ */
+export function evidenceUploadsEnabled(): boolean {
+  return process.env.EVIDENCE_UPLOADS !== "off";
+}
+
 export type { StorageDriver };

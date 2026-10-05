@@ -105,6 +105,19 @@ describe("inspectUpload", () => {
 });
 
 describe("attachEvidenceToCase", () => {
+  it("refuses uploads, and stores nothing, when EVIDENCE_UPLOADS=off", async () => {
+    const caseId = await aCase();
+    process.env.EVIDENCE_UPLOADS = "off";
+    try {
+      await expect(attachEvidenceToCase(admin, caseId, PDF, "statement.pdf", meta())).rejects.toThrow(
+        "switched off",
+      );
+    } finally {
+      delete process.env.EVIDENCE_UPLOADS;
+    }
+    expect(await listEvidenceForCase(admin, caseId)).toHaveLength(0);
+  });
+
   it("stores the file and returns it in the listing", async () => {
     const caseId = await aCase();
     const id = await attachEvidenceToCase(admin, caseId, PDF, "statement.pdf", meta());

@@ -6,6 +6,7 @@ import { getCase } from "@/server/cases";
 import { listParties } from "@/server/parties";
 import { listNotes } from "@/server/notes";
 import { listEvidenceForCase } from "@/server/evidence";
+import { evidenceUploadsEnabled } from "@/lib/storage";
 import { getOutcome } from "@/server/outcomes";
 import { prisma } from "@/lib/db";
 import { TRANSITIONS } from "@/lib/cases/transitions";
@@ -408,15 +409,24 @@ export default async function CaseDetailPage({
             ))}
           </ul>
 
-          <form action={uploadEvidenceAction} className="mt-3 flex flex-wrap items-end gap-2">
-            <input type="hidden" name="caseId" value={kase.id} />
-            <input type="file" name="file" required className="text-sm" />
-            <button type="submit" className={button}>Attach</button>
-          </form>
-          <p className="mt-2 text-xs text-slate-600">
-            PNG, JPEG, GIF, PDF or plain text, up to 10 MB. The type is read from the
-            file&rsquo;s contents, not its name.
-          </p>
+          {evidenceUploadsEnabled() ? (
+            <>
+              <form action={uploadEvidenceAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="caseId" value={kase.id} />
+                <input type="file" name="file" required className="text-sm" />
+                <button type="submit" className={button}>Attach</button>
+              </form>
+              <p className="mt-2 text-xs text-slate-600">
+                PNG, JPEG, GIF, PDF or plain text, up to 10 MB. The type is read from the
+                file&rsquo;s contents, not its name.
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-xs text-slate-600">
+              Evidence uploads are switched off on this demo deployment, which has no
+              permanent file storage.
+            </p>
+          )}
         </section>
       ) : null}
 

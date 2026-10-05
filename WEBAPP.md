@@ -15,6 +15,7 @@ it reads the campus directory, it never writes to it.
 | [`README.md`](README.md) | Data management, schema design, the ERD, the synthetic engine, analytics |
 | **This file** | The web application: features, roles, routes, how to run it |
 | [`docs/APP_GUIDE.md`](docs/APP_GUIDE.md) | Walkthrough with live screenshots, architecture, and the ER diagram of both schemas |
+| [`DEPLOY.md`](DEPLOY.md) | Free deployment on Vercel + Supabase, step by step |
 | [`webapp/README.md`](webapp/README.md) | Engineering detail: architecture rules, invariants, the simulator, known limitations |
 
 ---

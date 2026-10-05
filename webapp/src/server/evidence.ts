@@ -3,7 +3,7 @@ import { withAudit } from "@/lib/audit/withAudit";
 import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { inspectUpload } from "@/lib/upload/inspect";
-import { storage } from "@/lib/storage";
+import { evidenceUploadsEnabled, storage } from "@/lib/storage";
 import type { RequestMeta } from "@/server/accounts";
 
 export type EvidenceView = {
@@ -37,6 +37,9 @@ export async function attachEvidenceToCase(
   meta: RequestMeta,
 ): Promise<string> {
   requireRole(actor, ["officer", "investigator", "admin", "dpo"]);
+  if (!evidenceUploadsEnabled()) {
+    throw new ForbiddenError("Evidence uploads are switched off on this deployment.");
+  }
   const kase = await caseForEvidence(actor, caseId);
 
   const inspected = inspectUpload(bytes, originalFilename);

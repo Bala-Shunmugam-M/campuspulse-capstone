@@ -1,7 +1,7 @@
 import type { ComplianceRole } from "@prisma/client";
 import { prisma } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth/password";
-import { CATEGORIES, DEPARTMENTS, INSTITUTIONS, POLICIES, SEED_PASSWORD } from "./seed-data";
+import { CATEGORIES, DEPARTMENTS, INSTITUTIONS, POLICIES, seedPassword } from "./seed-data";
 
 const ROLE_MIX: { role: ComplianceRole; count: number }[] = [
   { role: "admin", count: 1 },
@@ -12,7 +12,8 @@ const ROLE_MIX: { role: ComplianceRole; count: number }[] = [
 ];
 
 async function main() {
-  const passwordHash = await hashPassword(SEED_PASSWORD);
+  const password = seedPassword();
+  const passwordHash = await hashPassword(password);
 
   for (const inst of INSTITUTIONS) {
     const [institution] = await prisma.$queryRaw<{ id: string }[]>`
@@ -123,7 +124,10 @@ async function main() {
   console.log(
     `institutions ${institutions}  accounts ${accounts}  live role grants ${grants}  policies ${policies}`,
   );
-  console.log(`\nSign in as  admin1@northgate.edu  /  ${SEED_PASSWORD}`);
+  // A password supplied through SEED_PASSWORD is a real secret: never echo it.
+  console.log(
+    `\nSign in as  admin1@northgate.edu  /  ${process.env.SEED_PASSWORD ? "(the SEED_PASSWORD you set)" : password}`,
+  );
 }
 
 main()
