@@ -52,3 +52,6 @@ desktop.ini
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
+
+# Local list of seeded demo logins; regenerate rather than commit
+DEMO_ACCOUNTS.txt
