@@ -15,7 +15,9 @@ export default async function LoginPage({
       await signIn("credentials", {
         email: String(formData.get("email") ?? "").toLowerCase(),
         password: String(formData.get("password") ?? ""),
-        redirectTo: "/cases",
+        // The front door already lists what each role can do. A fixed "/cases"
+        // sent reporters straight to a page that refuses them.
+        redirectTo: "/",
       });
     } catch (thrown) {
       if ((thrown as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw thrown;

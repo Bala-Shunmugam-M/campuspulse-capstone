@@ -505,7 +505,7 @@ staff page — and surfaced six things worth knowing:
 
 | # | Observation | Evidence | Suggested fix |
 |---|---|---|---|
-| 1 | **A reporter who signs in lands on "You are not permitted to view the case queue."** Sign-in always redirects to `/cases`. | `webapp/src/app/login/page.tsx:18` (`redirectTo: "/cases"`); screenshot [`app-15-after-login-reporter.png`](img/app-15-after-login-reporter.png) | Redirect by role: staff to `/dashboard`, reporters to `/policies` |
+| 1 | ~~**A reporter who signs in lands on "You are not permitted to view the case queue."**~~ **Fixed**: sign-in now goes to the front door, which lists what each role can do. | `webapp/src/app/login/page.tsx:18` (`redirectTo: "/cases"`); screenshot [`app-15-after-login-reporter.png`](img/app-15-after-login-reporter.png) | Redirect by role: staff to `/dashboard`, reporters to `/policies` |
 | 2 | ~~**Anonymous submission is not rate-limited**~~ — **fixed**: 30 per hour per connection, keyed on a day-rotated, never-stored hash of the client address | `submitAnonymousReport` in `webapp/src/server/reports.ts` | Done, alongside the AI drafting helper |
 | 3 | **The local database contains test-suite rows** — cases titled `DASH-… overdue`, `Clock audit …`; accounts `page-…@`, `login-…@`; policies named `Immutability fixture`. They appear on the queue, admin dashboard and audit log. | 9 of 844 Northgate cases; visible in `app-06`, `app-11`, `app-12` | Point the test suite at its own database |
 | 4 | A **closed** case still shows an SLA countdown: "-2143 hours remaining". | `app-09-case-detail.png` | Once resolved, show "met" or "breached by N hours" |
