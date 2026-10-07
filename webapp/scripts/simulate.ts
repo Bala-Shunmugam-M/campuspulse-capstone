@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { faker } from "@faker-js/faker";
 import { prisma } from "../src/lib/db";
-import { SEED_PASSWORD } from "../prisma/seed-data";
+import { seedPassword } from "../prisma/seed-data";
 import { Rng, arrivalTimes, noLaterThan, plusHours } from "./sim/distributions";
 import { SimulationError } from "./sim/client";
 import {
@@ -151,7 +151,9 @@ async function main() {
     anchor: options.anchor,
     scheduler,
     tally: emptyTally(),
-    password: SEED_PASSWORD,
+    // SEED_PASSWORD when set (a hosted database's demo accounts were rotated
+    // to a secret); the public default only against a local database.
+    password: seedPassword(),
     finished: new Set(),
     sessions: new Map(),
   };
