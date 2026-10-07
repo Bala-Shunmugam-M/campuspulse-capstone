@@ -85,7 +85,7 @@ to use the public default password against anything but `localhost`, so
 | Variable | Value | Notes |
 |---|---|---|
 | `DATABASE_URL` | transaction pooler URL + `?pgbouncer=true&connection_limit=1&schema=compliance` | Port **6543** |
-| `AUTH_SECRET` | output of `npx auth secret` | Generate a new one for production |
+| `AUTH_SECRET` | output of `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` | Generate a new one for production. Not `npx auth secret`: the npm package named `auth` now belongs to Better Auth |
 | `AUTH_TRUST_HOST` | `true` | Lets Auth.js accept Vercel's host |
 | `IP_HASH_PEPPER` | same value as in your local `webapp/.env` | Do not regenerate — it keeps rate-limit keys stable |
 | `EVIDENCE_UPLOADS` | `off` | Vercel keeps no disk between requests; uploads are refused with an explanation instead of being lost |
