@@ -1,11 +1,21 @@
 import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { withAudit } from "@/lib/audit/withAudit";
-import { requireRole, requireSameInstitution, type Actor } from "@/lib/auth/rbac";
-import { ForbiddenError, InvalidTransitionError, NotFoundError } from "@/lib/errors";
+import {
+  requireRole,
+  requireSameInstitution,
+  type Actor,
+} from "@/lib/auth/rbac";
+import {
+  ForbiddenError,
+  InvalidTransitionError,
+  NotFoundError,
+} from "@/lib/errors";
 import { canTransition } from "@/lib/cases/transitions";
 import { caseAudience, notify } from "@/lib/notify";
-import { decodeCursor, pageSize, toPage, type Page } from "@/lib/pagination";
+import { pageSize, toPage, type Page } from "@/lib/pagination";
+import { queueQuery } from "@/lib/cases/queue-query";
+import { now } from "@/lib/clock";
 import type { RequestMeta } from "@/server/accounts";
 
 /** Hours allowed before a case is overdue, by severity. */
@@ -28,6 +38,9 @@ export type TriageInput = {
 };
 
 export type CaseFilter = {
+  q?: string;
+  deadline?: "open" | "overdue" | "soon";
+  sort?: "asc" | "desc";
   status?: CaseStatus;
   severity?: Severity;
   /** An account id, "me" for the actor, or "unassigned". */
@@ -59,13 +72,17 @@ export async function triageReport(
 ): Promise<{ caseNumber: string }> {
   requireRole(actor, ["officer", "admin"]);
 
-  const report = await prisma.report.findFirst({ where: { id: reportId, deletedAt: null } });
+  const report = await prisma.report.findFirst({
+    where: { id: reportId, deletedAt: null },
+  });
   if (!report) throw new NotFoundError("That report does not exist.");
   requireSameInstitution(actor, report.institutionId);
 
   const openedAt = meta.at;
   const year = openedAt.getUTCFullYear();
-  const slaDueAt = new Date(openedAt.getTime() + SLA_HOURS[input.severity] * 3_600_000);
+  const slaDueAt = new Date(
+    openedAt.getTime() + SLA_HOURS[input.severity] * 3_600_000,
+  );
 
   const caseNumber = await prisma.$transaction(async (tx) => {
     // Allocated by the database rather than by counting rows. A count-and-add-one
@@ -92,7 +109,10 @@ export async function triageReport(
     await tx.caseReport.create({
       data: { caseId: created.id, reportId: report.id, isPrimary: true },
     });
-    await tx.report.update({ where: { id: report.id }, data: { status: "triaged" } });
+    await tx.report.update({
+      where: { id: report.id },
+      data: { status: "triaged" },
+    });
     await tx.caseStatusHistory.create({
       data: {
         caseId: created.id,
@@ -127,12 +147,6 @@ export async function triageReport(
   return { caseNumber };
 }
 
-function assigneeWhere(actor: Actor, assignedTo: string | undefined) {
-  if (!assignedTo) return {};
-  if (assignedTo === "unassigned") return { assignedOfficerId: null };
-  return { assignedOfficerId: assignedTo === "me" ? actor.accountId : assignedTo };
-}
-
 /**
  * A page of the case queue, most urgent first.
  *
@@ -149,29 +163,8 @@ export async function listCases(
   requireRole(actor, ["officer", "investigator", "admin"]);
 
   const limit = pageSize(filter.limit);
-  const cursor = decodeCursor(filter.cursor);
-  const after = cursor ? new Date(cursor.key) : null;
-  const usable = after && !Number.isNaN(after.getTime()) ? { at: after, id: cursor!.id } : null;
-
   const rows = await prisma.case.findMany({
-    where: {
-      institutionId: actor.institutionId,
-      deletedAt: null,
-      status: filter.status,
-      severity: filter.severity,
-      ...assigneeWhere(actor, filter.assignedTo),
-      // Sealed cases never appear in a queue; only a dpo reaches them by id.
-      confidentiality: { not: "sealed" },
-      ...(usable
-        ? {
-            OR: [
-              { slaDueAt: { gt: usable.at } },
-              { slaDueAt: usable.at, id: { gt: usable.id } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ slaDueAt: "asc" }, { id: "asc" }],
+    ...queueQuery(actor, filter, now()),
     // One more than asked for: the extra row is how we know a further page
     // exists, without a COUNT that could disagree with this query.
     take: limit + 1,
@@ -240,7 +233,9 @@ export async function changeCaseStatus(
 ): Promise<void> {
   requireRole(actor, ["officer", "investigator", "admin", "dpo"]);
 
-  const kase = await prisma.case.findFirst({ where: { id: caseId, deletedAt: null } });
+  const kase = await prisma.case.findFirst({
+    where: { id: caseId, deletedAt: null },
+  });
   if (!kase) throw new NotFoundError("That case does not exist.");
   requireSameInstitution(actor, kase.institutionId);
 
@@ -330,7 +325,9 @@ export async function assignCase(
 ): Promise<void> {
   requireRole(actor, ["officer", "admin"]);
 
-  const kase = await prisma.case.findFirst({ where: { id: caseId, deletedAt: null } });
+  const kase = await prisma.case.findFirst({
+    where: { id: caseId, deletedAt: null },
+  });
   if (!kase) throw new NotFoundError("That case does not exist.");
   requireSameInstitution(actor, kase.institutionId);
 

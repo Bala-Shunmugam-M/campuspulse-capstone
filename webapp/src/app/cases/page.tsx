@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CaseStatus, Confidentiality, Severity } from "@prisma/client";
 import { currentActor } from "@/lib/auth/actor";
-import { listCases, triageReport } from "@/server/cases";
+import { listCases, triageReport, type CaseFilter } from "@/server/cases";
+import { Icon } from "@/components/Icon";
 import { isOverdue } from "@/lib/cases/sla";
 import { now } from "@/lib/clock";
 import { listUntriagedReports } from "@/server/reports";
@@ -30,7 +31,7 @@ const SEVERITY_STYLE: Record<string, string> = {
 };
 
 /** Small enough that the next-page link is exercised in ordinary use. */
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 async function triage(formData: FormData) {
   "use server";
@@ -43,7 +44,9 @@ async function triage(formData: FormData) {
     {
       severity: String(formData.get("severity") ?? "moderate") as Severity,
       title: String(formData.get("title") ?? "Untitled case"),
-      confidentiality: String(formData.get("confidentiality") ?? "standard") as Confidentiality,
+      confidentiality: String(
+        formData.get("confidentiality") ?? "standard",
+      ) as Confidentiality,
     },
     newRequestMeta(await headers()),
   );
@@ -58,21 +61,44 @@ export default async function CasesPage({
     severity?: string;
     assignedTo?: string;
     cursor?: string;
+    q?: string;
+    deadline?: string;
+    sort?: string;
   }>;
 }) {
   const actor = await currentActor();
   if (!actor) redirect("/login");
 
-  const { status, severity, assignedTo, cursor } = await searchParams;
-  const filter = {
-    status: STATUSES.includes(status as CaseStatus) ? (status as CaseStatus) : undefined,
-    severity: SEVERITY_ORDER.includes(severity as Severity) ? (severity as Severity) : undefined,
+  const { status, severity, assignedTo, cursor, q, deadline, sort } =
+    await searchParams;
+  const filter: CaseFilter = {
+    q: q?.trim().slice(0, 200) || undefined,
+    deadline: ["open", "overdue", "soon"].includes(deadline ?? "")
+      ? (deadline as CaseFilter["deadline"])
+      : undefined,
+    sort: sort === "desc" ? "desc" : "asc",
+    status: STATUSES.includes(status as CaseStatus)
+      ? (status as CaseStatus)
+      : undefined,
+    severity: SEVERITY_ORDER.includes(severity as Severity)
+      ? (severity as Severity)
+      : undefined,
     assignedTo: assignedTo || undefined,
     cursor: cursor || undefined,
     limit: PAGE_SIZE,
   };
 
   const canTriage = actor.roles.some((r) => r === "officer" || r === "admin");
+  const params = new URLSearchParams({
+    ...(filter.status ? { status: filter.status } : {}),
+    ...(filter.severity ? { severity: filter.severity } : {}),
+    ...(assignedTo ? { assignedTo } : {}),
+    ...(filter.q ? { q: filter.q } : {}),
+    ...(filter.deadline ? { deadline: filter.deadline } : {}),
+    sort: filter.sort ?? "asc",
+  });
+  const sortParams = new URLSearchParams(params);
+  sortParams.set("sort", filter.sort === "asc" ? "desc" : "asc");
 
   let page;
   let untriaged;
@@ -100,8 +126,16 @@ export default async function CasesPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Case queue</h1>
+      <header className="queue-heading">
+        <div>
+          <p className="eyebrow">From report to resolution</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Case queue</h1>
+          <p>Find the right case. Take the next step.</p>
+        </div>
+        <Link href="/report" className="button button-primary">
+          <Icon name="plus" />
+          Report an incident
+        </Link>
         <nav className="flex gap-4 text-sm text-slate-600">
           <Link className="underline" href="/dashboard">
             Dashboard
@@ -118,7 +152,53 @@ export default async function CasesPage({
         </nav>
       </header>
 
-      <form method="GET" className="flex flex-wrap items-end gap-3">
+      <div className="queue-quick-filters">
+        <Link
+          href="/cases"
+          aria-current={!filter.deadline && !assignedTo ? "page" : undefined}
+        >
+          All cases
+        </Link>
+        <Link
+          href="/cases?assignedTo=me&deadline=open"
+          aria-current={assignedTo === "me" ? "page" : undefined}
+        >
+          My active cases
+        </Link>
+        <Link
+          href="/cases?deadline=overdue"
+          aria-current={filter.deadline === "overdue" ? "page" : undefined}
+        >
+          Overdue
+        </Link>
+        <Link
+          href="/cases?deadline=soon"
+          aria-current={filter.deadline === "soon" ? "page" : undefined}
+        >
+          Due in 24 hours
+        </Link>
+        <Link
+          href="/cases?assignedTo=unassigned&deadline=open"
+          aria-current={assignedTo === "unassigned" ? "page" : undefined}
+        >
+          Unassigned
+        </Link>
+      </div>
+      <form
+        method="GET"
+        className="queue-filters flex flex-wrap items-end gap-3"
+      >
+        <input type="hidden" name="sort" value={filter.sort} />
+        <label className="search-filter flex flex-col gap-1">
+          <span>Search cases</span>
+          <input
+            name="q"
+            defaultValue={filter.q ?? ""}
+            placeholder="Case number or title…"
+            maxLength={200}
+            className="rounded border border-slate-300"
+          />
+        </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-slate-600">Status</span>
           <select
@@ -161,60 +241,99 @@ export default async function CasesPage({
             <option value="unassigned">Unassigned</option>
           </select>
         </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-slate-600">Deadline</span>
+          <select
+            name="deadline"
+            defaultValue={filter.deadline ?? ""}
+            className="rounded border border-slate-300"
+          >
+            <option value="">Any deadline</option>
+            <option value="open">Active cases</option>
+            <option value="overdue">Overdue</option>
+            <option value="soon">Due in 24 hours</option>
+          </select>
+        </label>
         <button
           type="submit"
           className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50"
         >
-          Filter
+          Apply filters
         </button>
       </form>
 
-      <section>
+      <section className="queue-table-panel">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-          Cases ({page.rows.length}) — most urgent first
+          {page.rows.length} cases on this page ·{" "}
+          {filter.sort === "desc"
+            ? "latest deadlines first"
+            : "earliest deadlines first"}
         </h2>
         {page.rows.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">No cases match.</p>
         ) : (
-          <table className="mt-3 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-slate-300 text-left text-slate-600">
-                <th className="py-2 pr-3 font-medium">Case</th>
-                <th className="py-2 pr-3 font-medium">Title</th>
-                <th className="py-2 pr-3 font-medium">Severity</th>
-                <th className="py-2 pr-3 font-medium">Status</th>
-                <th className="py-2 pr-3 font-medium">SLA due</th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.rows.map((c) => (
-                <tr key={c.id} className="border-b border-slate-200">
-                  <td className="py-2 pr-3 font-mono">
-                    <Link className="underline" href={`/cases/${c.id}`}>
-                      {c.caseNumber}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-3">{c.title}</td>
-                  <td className="py-2 pr-3">
-                    <span
-                      className={`rounded border px-2 py-0.5 text-xs ${SEVERITY_STYLE[c.severity]}`}
+          <div className="table-scroll">
+            <table className="mt-3 w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-300 text-left text-slate-600">
+                  <th className="py-2 pr-3 font-medium">Case</th>
+                  <th className="py-2 pr-3 font-medium">Title</th>
+                  <th className="py-2 pr-3 font-medium">Severity</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th
+                    className="py-2 pr-3 font-medium"
+                    aria-sort={
+                      filter.sort === "asc" ? "ascending" : "descending"
+                    }
+                  >
+                    <Link
+                      href={`/cases?${sortParams}`}
+                      className="inline-flex items-center gap-2"
                     >
-                      {c.severity}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3">{c.status.replaceAll("_", " ")}</td>
-                  <td className="py-2 pr-3">
-                    {c.slaDueAt.toISOString().slice(0, 10)}
-                    {isOverdue(c.slaDueAt, c.status, now()) ? (
-                      <span className="ml-2 rounded border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
-                        Overdue
-                      </span>
-                    ) : null}
-                  </td>
+                      SLA due <Icon name="sort" width={13} height={13} />
+                    </Link>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {page.rows.map((c) => (
+                  <tr key={c.id} className="border-b border-slate-200">
+                    <td className="py-2 pr-3 font-mono">
+                      <Link className="underline" href={`/cases/${c.id}`}>
+                        {c.caseNumber}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Link
+                        href={`/cases/${c.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {c.title}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span
+                        className={`rounded border px-2 py-0.5 text-xs ${SEVERITY_STYLE[c.severity]}`}
+                      >
+                        {c.severity}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {c.status.replaceAll("_", " ")}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {c.slaDueAt.toISOString().slice(0, 10)}
+                      {isOverdue(c.slaDueAt, c.status, now()) ? (
+                        <span className="ml-2 rounded border border-red-300 bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+                          Overdue
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {page.nextCursor ? (
@@ -222,6 +341,7 @@ export default async function CasesPage({
             <Link
               className="underline"
               href={`/cases?${new URLSearchParams({
+                ...Object.fromEntries(params),
                 ...(filter.status ? { status: filter.status } : {}),
                 ...(filter.severity ? { severity: filter.severity } : {}),
                 ...(assignedTo ? { assignedTo } : {}),
@@ -234,7 +354,10 @@ export default async function CasesPage({
         ) : null}
         {cursor ? (
           <p className="mt-2 text-sm">
-            <Link className="text-slate-600 underline" href="/cases">
+            <Link
+              className="text-slate-600 underline"
+              href={`/cases?${params}`}
+            >
               Back to the first page
             </Link>
           </p>
@@ -249,58 +372,69 @@ export default async function CasesPage({
           <ul className="mt-3 flex flex-col gap-3">
             {untriaged.map((r) => (
               <li key={r.id} className="rounded border border-slate-300 p-3">
-                <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
-                  <span className="font-mono text-slate-600">{r.referenceCode}</span>
-                  <span className="font-medium text-slate-900">{r.title}</span>
-                  <span className="text-xs text-slate-600">
-                    {r.isAnonymous ? "anonymous" : "attributed"} · reported{" "}
-                    {r.severitySelfReported}
-                  </span>
-                </div>
-                <form action={triage} className="mt-3 flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="reportId" value={r.id} />
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-slate-600">Case title</span>
-                    <input
-                      name="title"
-                      required
-                      defaultValue={r.title}
-                      className="rounded border border-slate-300 px-2 py-1 text-sm"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-slate-600">Severity</span>
-                    <select
-                      name="severity"
-                      defaultValue={r.severitySelfReported}
-                      className="rounded border border-slate-300 px-2 py-1 text-sm"
-                    >
-                      {SEVERITY_ORDER.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-slate-600">Confidentiality</span>
-                    <select
-                      name="confidentiality"
-                      defaultValue="standard"
-                      className="rounded border border-slate-300 px-2 py-1 text-sm"
-                    >
-                      <option value="standard">standard</option>
-                      <option value="restricted">restricted</option>
-                      <option value="sealed">sealed</option>
-                    </select>
-                  </label>
-                  <button
-                    type="submit"
-                    className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-800"
+                <details className="triage-report">
+                  <summary className="flex flex-wrap items-baseline gap-x-3 text-sm">
+                    <span className="font-mono text-slate-600">
+                      {r.referenceCode}
+                    </span>
+                    <span className="font-medium text-slate-900">
+                      {r.title}
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      {r.isAnonymous ? "anonymous" : "attributed"} · reported{" "}
+                      {r.severitySelfReported}
+                    </span>
+                  </summary>
+                  <form
+                    action={triage}
+                    className="mt-3 flex flex-wrap items-end gap-2"
                   >
-                    Open case
-                  </button>
-                </form>
+                    <input type="hidden" name="reportId" value={r.id} />
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-600">Case title</span>
+                      <input
+                        name="title"
+                        required
+                        defaultValue={r.title}
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-600">Severity</span>
+                      <select
+                        name="severity"
+                        defaultValue={r.severitySelfReported}
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      >
+                        {SEVERITY_ORDER.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-slate-600">
+                        Confidentiality
+                      </span>
+                      <select
+                        name="confidentiality"
+                        defaultValue="standard"
+                        className="rounded border border-slate-300 px-2 py-1 text-sm"
+                      >
+                        <option value="standard">standard</option>
+                        <option value="restricted">restricted</option>
+                        <option value="sealed">sealed</option>
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-800"
+                    >
+                      Open case
+                    </button>
+                  </form>
+                </details>
               </li>
             ))}
           </ul>
