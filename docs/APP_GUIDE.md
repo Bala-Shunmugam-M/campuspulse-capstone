@@ -99,7 +99,8 @@ data.
 |---|---|
 | `app/page.tsx` | Front door: report, check a report, sign in |
 | `app/report/…` | Filing a report, the one-time confirmation page, anonymous status lookup |
-| `app/login/page.tsx` | Sign-in form |
+| `app/login/page.tsx` | Sign-in form; every sign-in lands on the role-aware front door |
+| `components/AccountBar.tsx`, `components/SignOutButton.tsx` | The bar on every signed-in page: who you are, a link home, and **Sign out** |
 | `app/dashboard/page.tsx` | Officer workload; institution-wide figures for admin/DPO |
 | `app/cases/…` | The queue, triage, and the case detail page with its server actions |
 | `app/policies/…` | Policy library, search, one policy with its versions, acknowledge |
@@ -332,6 +333,12 @@ Seeded accounts follow the pattern `role1@northgate.edu` — `admin1`, `dpo1`,
 printed by `npm run seed`. Five wrong attempts lock an account for fifteen
 minutes.
 
+After signing in, everyone lands on the front door, which lists what their
+role can do — here an officer's Dashboard, Case queue, Campus directory and
+Policy library — under the account bar described in §4.16.
+
+![Front door after an officer signs in](img/app-17-after-sign-in.png)
+
 ### 4.6 An officer's dashboard — `/dashboard`
 
 ![Officer workload dashboard](img/app-07-dashboard-officer.png)
@@ -433,11 +440,26 @@ the same date, so exactly one version is in force on any day.
 
 ### 4.15 What a reporter sees
 
-![What a reporter sees straight after signing in](img/app-15-after-login-reporter.png)
-
 A signed-in reporter can file attributed reports and read and acknowledge
-policies — the policy library looks exactly as in §4.13. Staff pages refuse
-them, and today that includes the page sign-in sends them to (finding 1 in §7).
+policies — the policy library looks exactly as in §4.13. After signing in they
+land on the front door with **Report an incident**, **Check a report I filed**
+and **Policy library**. Staff pages still refuse them, but sign-in no longer
+sends them to one (finding 1 in §7, now fixed).
+
+### 4.16 The account bar and signing out
+
+![Account bar with the Sign out button](img/app-18-account-bar.png)
+
+Every page shows this bar while you are signed in: **Campus Compliance** (back
+to the front door), **Signed in as …**, and **Sign out**. Anonymous visitors
+never see it, so the reporting pages look the same as before.
+
+**Sign out** does more than clear the browser cookie: it revokes the session in
+the database, so a copied cookie stops working too. You land on the front door
+signed out; any staff page then sends you back to `/login`.
+
+*The other signed-in screenshots in this section were taken before the bar
+existed; the pages under it are unchanged.*
 
 ---
 
