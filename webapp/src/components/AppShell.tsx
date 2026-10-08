@@ -81,9 +81,21 @@ export function AppShell({
       ? [{ href: "/audit", label: "Audit log", icon: "shield" } as NavItem]
       : []),
   ];
+  const section = navigation.find(
+    (n) => n.href !== "/" && pathname.startsWith(n.href),
+  );
+  // A page below a section (/cases/<id>, /policies/<id>) names itself and links
+  // back to its list, rather than claiming to be the list.
+  const detail =
+    section && pathname.length > section.href.length + 1
+      ? section.href === "/cases"
+        ? "Case details"
+        : section.href === "/policies"
+          ? "Policy"
+          : "Details"
+      : null;
   const current =
-    navigation.find((n) => n.href !== "/" && pathname.startsWith(n.href))
-      ?.label ??
+    section?.label ??
     (pathname.startsWith("/report/status")
       ? "Track a report"
       : pathname.startsWith("/report")
@@ -341,7 +353,15 @@ export function AppShell({
             </button>
             <span>Workspace</span>
             <Icon name="chevron" />
-            <strong>{current}</strong>
+            {section && detail ? (
+              <>
+                <Link href={section.href}>{section.label}</Link>
+                <Icon name="chevron" />
+                <strong aria-current="page">{detail}</strong>
+              </>
+            ) : (
+              <strong aria-current="page">{current}</strong>
+            )}
           </div>
           <div className="toolbar-actions">
             <button
